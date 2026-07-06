@@ -35,7 +35,7 @@ export default function ProductDetail({ p }: { p: Product }) {
         <div className={`pdp__main frame ${p.panel}`}>
           {main?.url ? (
             <Image
-              src={main.url}
+              src={main.fullUrl || main.url || ""}
               alt={p.name}
               fill
               priority
@@ -62,7 +62,7 @@ export default function ProductDetail({ p }: { p: Product }) {
                 aria-label={`View image ${i + 1}`}
               >
                 {g.url ? (
-                  <Image src={g.url} alt="" fill sizes="70px" style={{ objectFit: "cover" }} />
+                  <Image src={g.thumbUrl || g.url || ""} alt="" fill sizes="70px" style={{ objectFit: "cover" }} />
                 ) : (
                   <div className={`motif ${p.tone}`} style={{ opacity: 0.5 }}>
                     <svg viewBox={vb(p.motif)}>

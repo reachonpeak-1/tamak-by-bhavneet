@@ -13,7 +13,7 @@ const arr = (v: unknown): string[] =>
       ? v.split(",").map((s) => s.trim()).filter(Boolean)
       : [];
 
-type GalleryIn = { path?: string; blurDataURL?: string; url?: string };
+type GalleryIn = { path?: string; blurDataURL?: string; url?: string; thumbUrl?: string; mediumUrl?: string; fullUrl?: string };
 
 // Keeps each image's path + blur, and PRESERVES an absolute (Firebase Storage)
 // url when the uploader provides one — so admin-uploaded images resolve even
@@ -25,8 +25,16 @@ const galleryOf = (v: unknown): { path: string; blurDataURL: string; url?: strin
     ? (v as GalleryIn[])
         .map((g) => {
           const url = str(g.url);
-          const item: { path: string; blurDataURL: string; url?: string } = { path: str(g.path), blurDataURL: str(g.blurDataURL) };
+          const item: Record<string, string | undefined> & { path: string; blurDataURL: string } = {
+            path: str(g.path),
+            blurDataURL: str(g.blurDataURL),
+          };
           if (/^https?:\/\//.test(url)) item.url = url;
+          // Preserve optimized variant URLs from Sharp
+          for (const k of ["thumbUrl", "mediumUrl", "fullUrl"] as const) {
+            const v = str((g as Record<string, unknown>)[k]);
+            if (/^https?:\/\//.test(v)) item[k] = v;
+          }
           return item;
         })
         .filter((g) => g.path)

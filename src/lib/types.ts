@@ -8,6 +8,18 @@ export interface GalleryImage {
   blurDataURL: string;
   /** full delivery URL, computed at runtime from the storage bucket */
   url?: string;
+  /** Optimized WebP variants — generated at upload time by Sharp */
+  thumbUrl?: string;   // 150px wide
+  mediumUrl?: string;  // 600px wide
+  fullUrl?: string;    // 1200px wide
+  /** Original image dimensions — stored at upload time for correct <Image> width/height */
+  originalWidth?: number | null;
+  originalHeight?: number | null;
+  /** File metadata stored in mediaLibrary */
+  fileSizeBytes?: number;
+  originalFileName?: string;
+  uploadedAt?: string | null;
+  uploadedBy?: string;
 }
 
 /** A purchasable colour variant: its own stock and (optionally) its own images. */

@@ -26,7 +26,7 @@ export function storageUrl(key?: string): string | undefined {
   return `/${key}`; // local: /public/products/PROD_x/n.jpg
 }
 
-type RawImage = { path: string; blurDataURL: string; url?: string };
+type RawImage = { path: string; blurDataURL: string; url?: string; thumbUrl?: string; mediumUrl?: string; fullUrl?: string };
 type RawProduct = Record<string, unknown> & {
   imagePath?: string;
   gallery?: RawImage[];
@@ -40,6 +40,9 @@ const hydrateGallery = (imgs?: RawImage[]): GalleryImage[] =>
     path: g.path,
     blurDataURL: g.blurDataURL,
     url: g.url && /^https?:\/\//.test(g.url) ? g.url : storageUrl(`products/${g.path}`),
+    thumbUrl: g.thumbUrl,
+    mediumUrl: g.mediumUrl,
+    fullUrl: g.fullUrl,
   }));
 
 function hydrate(p: RawProduct): Product {

@@ -20,10 +20,10 @@ export default function ProductCard({ p, priority = false }: { p: Product; prior
 
   // Find secondary image for hover reveal
   const secondaryImage =
-    p.gallery?.[1]?.url ||
-    p.variants?.[0]?.gallery?.[1]?.url ||
-    p.variants?.[1]?.gallery?.[0]?.url ||
-    p.gallery?.[0]?.url;
+    p.gallery?.[1]?.mediumUrl || p.gallery?.[1]?.url ||
+    p.variants?.[0]?.gallery?.[1]?.mediumUrl || p.variants?.[0]?.gallery?.[1]?.url ||
+    p.variants?.[1]?.gallery?.[0]?.mediumUrl || p.variants?.[1]?.gallery?.[0]?.url ||
+    p.gallery?.[0]?.mediumUrl || p.gallery?.[0]?.url;
 
   // Calculate discount percentage if old price exists
   const discountPercent =
@@ -57,13 +57,13 @@ export default function ProductCard({ p, priority = false }: { p: Product; prior
           {/* Primary Image */}
           {p.image ? (
             <Image
-              src={p.image}
+              src={p.gallery?.[0]?.mediumUrl || p.image}
               alt={p.name}
               fill
               priority={priority}
               sizes="(max-width:560px) 50vw, (max-width:900px) 33vw, 280px"
-              placeholder={p.blurDataURL ? "blur" : "empty"}
-              blurDataURL={p.blurDataURL}
+              placeholder={p.gallery?.[0]?.blurDataURL || p.blurDataURL ? "blur" : "empty"}
+              blurDataURL={p.gallery?.[0]?.blurDataURL || p.blurDataURL}
               className="prod-card__img prod-card__img--primary"
             />
           ) : (

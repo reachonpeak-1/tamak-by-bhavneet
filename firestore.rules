@@ -35,6 +35,9 @@ service cloud.firestore {
     // Admin-SDK-only collections.
     match /subscribers/{id} { allow read, write: if false; }
     match /auditLog/{id}    { allow read, write: if false; }
+    // Image metadata catalog — all reads/writes go through the Admin SDK in API routes.
+    // Client-side access is intentionally blocked so the image catalog stays private.
+    match /mediaLibrary/{id} { allow read, write: if false; }
 
     // Default deny.
     match /{document=**} { allow read, write: if false; }
