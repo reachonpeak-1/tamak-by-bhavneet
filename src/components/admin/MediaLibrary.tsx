@@ -10,7 +10,7 @@ import { useStore } from "@/components/StoreProvider";
  * "Load more". Reuses the same useGallery reader as the in-editor picker.
  */
 export default function MediaLibrary() {
-  const { images, loading, error, hasMore, load } = useGallery("", 60);
+  const { images, loading, error, hasMore, load } = useGallery("", 30);
   const { toast } = useStore();
 
   useEffect(() => {
@@ -37,7 +37,17 @@ export default function MediaLibrary() {
       <div className="adm-picker-grid">
         {images.map((img) => (
           <div className="adm-pick" key={img.name} style={{ cursor: "default" }} title={img.path}>
-            <Image src={img.url} alt="" width={120} height={160} unoptimized />
+            <Image
+              src={img.thumbUrl || img.url}
+              alt=""
+              width={120}
+              height={160}
+              loading="lazy"
+              sizes="120px"
+              placeholder={img.blurDataURL ? "blur" : "empty"}
+              blurDataURL={img.blurDataURL || undefined}
+              style={{ objectFit: "cover" }}
+            />
             <span className="adm-pick__url">
               <a href={img.url} target="_blank" rel="noopener noreferrer">Open</a>
               <button type="button" onClick={() => copy(img.url)}>Copy</button>

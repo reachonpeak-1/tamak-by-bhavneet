@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useGallery, type GalleryItem } from "@/components/admin/useGallery";
 import type { GItem } from "@/components/admin/ImageUploader";
 
@@ -9,21 +9,31 @@ import type { GItem } from "@/components/admin/ImageUploader";
  * Modal that browses ALL product images already in Firebase Storage and lets the
  * admin select existing ones to attach to a gallery (product- or variant-level),
  * instead of re-uploading. Paginated via "Load more".
+ *
+ * Also exposes an "Upload from device" button (via onUpload prop) so the admin
+ * never needs a separate tile — one button opens this combined panel.
  */
 export default function GalleryPicker({
   open,
   onClose,
   onSelect,
   existing = [],
+  onUpload,
+  busy = false,
 }: {
   open: boolean;
   onClose: () => void;
   onSelect: (items: GItem[]) => void;
   /** paths already on the gallery — shown as "added" and not selectable */
   existing?: string[];
+  /** optional: called with a FileList when the user picks files to upload */
+  onUpload?: (files: FileList | null) => void;
+  /** reflects the parent's uploading state so the upload button can show a spinner */
+  busy?: boolean;
 }) {
-  const { images, loading, error, hasMore, load } = useGallery("", 60);
+  const { images, loading, error, hasMore, load } = useGallery("", 30);
   const [selected, setSelected] = useState<Record<string, GalleryItem>>({});
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const added = new Set(existing);
 
   // Load the first page each time the modal opens. (Selection is cleared on close,
@@ -53,27 +63,68 @@ export default function GalleryPicker({
 
   const chosen = Object.values(selected);
   const confirm = () => {
-    onSelect(chosen.map((i) => ({ path: i.path, url: i.url, blurDataURL: "" })));
+    onSelect(
+      chosen.map((i) => ({
+        path:       i.path,
+        url:        i.fullUrl  || i.url,
+        thumbUrl:   i.thumbUrl || i.url,
+        mediumUrl:  i.mediumUrl || i.url,
+        fullUrl:    i.fullUrl  || i.url,
+        blurDataURL: i.blurDataURL || "",
+      })),
+    );
     close();
   };
 
   return (
     <div className="adm-modal" role="dialog" aria-modal="true" onClick={close}>
       <div className="adm-modal__panel" onClick={(e) => e.stopPropagation()}>
+
+        {/* ── header ── */}
         <div className="adm-modal__head">
           <div>
-            <div className="adm-modal__title">Image library</div>
+            <div className="adm-modal__title">Add images</div>
             <div className="adm-modal__sub">
-              {images.length} loaded{chosen.length ? ` · ${chosen.length} selected` : ""}
+              {images.length} in library{chosen.length ? ` · ${chosen.length} selected` : ""}
             </div>
           </div>
-          <button type="button" className="adm-modal__close" onClick={close} aria-label="Close">✕</button>
+
+          <div style={{ display: "flex", alignItems: "center", gap: ".5rem" }}>
+            {/* Upload from device — hidden file input triggered by button */}
+            {onUpload && (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  hidden
+                  disabled={busy}
+                  onChange={(e) => {
+                    onUpload(e.target.files);
+                    // reset so same file can be re-chosen if needed
+                    e.target.value = "";
+                  }}
+                />
+                <button
+                  type="button"
+                  className="adm-btn adm-btn--gold adm-btn--sm"
+                  disabled={busy}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {busy ? "⏳ Uploading…" : "↑ Upload from device"}
+                </button>
+              </>
+            )}
+            <button type="button" className="adm-modal__close" onClick={close} aria-label="Close">✕</button>
+          </div>
         </div>
 
+        {/* ── body ── */}
         <div className="adm-modal__body">
           {error && <p className="adm-sub" style={{ color: "var(--danger, #b23)" }}>{error}</p>}
           {images.length === 0 && !loading && !error && (
-            <p className="adm-sub">No images in storage yet. Upload some with “+ Add”.</p>
+            <p className="adm-sub">No images in storage yet — use "Upload from device" above to add some.</p>
           )}
           <div className="adm-picker-grid">
             {images.map((img) => {
@@ -87,7 +138,17 @@ export default function GalleryPicker({
                   onClick={() => toggle(img)}
                   title={img.path}
                 >
-                  <Image src={img.url} alt="" width={120} height={160} unoptimized />
+                  {/* Use thumbUrl (150px) + blur-up for blazing-fast grid loading */}
+                  <Image
+                    src={img.thumbUrl || img.url}
+                    alt=""
+                    width={120}
+                    height={160}
+                    loading="lazy"
+                    sizes="120px"
+                    placeholder={img.blurDataURL ? "blur" : "empty"}
+                    blurDataURL={img.blurDataURL || undefined}
+                  />
                   {isAdded && <span className="adm-pick__added">Added</span>}
                   {isSel && <span className="adm-pick__check">✓</span>}
                 </button>
@@ -103,8 +164,9 @@ export default function GalleryPicker({
           )}
         </div>
 
+        {/* ── footer ── */}
         <div className="adm-modal__foot">
-          <span className="adm-modal__sub">{chosen.length} selected</span>
+          <span className="adm-modal__sub">{chosen.length} selected from library</span>
           <span className="adm-actions">
             <button type="button" className="adm-btn adm-btn--ghost" onClick={close}>Cancel</button>
             <button type="button" className="adm-btn adm-btn--solid" disabled={!chosen.length} onClick={confirm}>
@@ -112,6 +174,7 @@ export default function GalleryPicker({
             </button>
           </span>
         </div>
+
       </div>
     </div>
   );

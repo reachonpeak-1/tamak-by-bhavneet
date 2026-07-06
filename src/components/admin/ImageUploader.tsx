@@ -10,6 +10,9 @@ export interface GItem {
   path: string;
   blurDataURL?: string;
   url?: string;
+  thumbUrl?: string;
+  mediumUrl?: string;
+  fullUrl?: string;
 }
 
 export default function ImageUploader({
@@ -52,7 +55,14 @@ export default function ImageUploader({
         });
         const j = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(j.error || "Upload failed");
-        next.push({ path: j.path, url: j.url, blurDataURL: "" });
+        next.push({
+          path: j.path,
+          url: j.url,
+          blurDataURL: j.blurDataURL || "",
+          thumbUrl: j.thumbUrl,
+          mediumUrl: j.mediumUrl,
+          fullUrl: j.fullUrl,
+        });
       }
       onChange(next);
       toast("Image uploaded");
@@ -84,7 +94,17 @@ export default function ImageUploader({
         {value.map((g, i) => (
           <div className={`adm-thumb${i === 0 ? " is-primary" : ""}`} key={g.path + i}>
             {g.url ? (
-              <Image src={g.url} alt="" width={90} height={112} style={{ objectFit: "cover" }} unoptimized />
+              <Image
+                src={g.thumbUrl || g.url || ""}
+                alt=""
+                width={108}
+                height={136}
+                loading="lazy"
+                sizes="108px"
+                placeholder={g.blurDataURL ? "blur" : "empty"}
+                blurDataURL={g.blurDataURL || undefined}
+                style={{ objectFit: "cover" }}
+              />
             ) : (
               <div className="adm-thumb__ph" />
             )}
@@ -97,19 +117,26 @@ export default function ImageUploader({
             {i === 0 && <span className="adm-thumb__tag">Primary</span>}
           </div>
         ))}
-        <label className={`adm-thumb adm-thumb--add${busy ? " is-busy" : ""}`}>
-          <input type="file" accept="image/*" multiple hidden onChange={(e) => add(e.target.files)} disabled={busy} />
-          <span>{busy ? "…" : "+ Add"}</span>
-        </label>
-        <button type="button" className="adm-thumb adm-thumb--add" onClick={() => setPickerOpen(true)} disabled={busy}>
-          <span>⊞ Library</span>
+
+        {/* Single combined tile — opens the modal which has both Upload + Library tabs */}
+        <button
+          type="button"
+          className={`adm-thumb adm-thumb--add${busy ? " is-busy" : ""}`}
+          onClick={() => setPickerOpen(true)}
+          disabled={busy}
+        >
+          <span className="adm-thumb--add__icon" aria-hidden="true">{busy ? "⏳" : "+"}</span>
+          <span>{busy ? "Uploading…" : "Add images"}</span>
         </button>
       </div>
+
       <GalleryPicker
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
         onSelect={addFromLibrary}
         existing={value.map((g) => g.path)}
+        onUpload={add}
+        busy={busy}
       />
     </div>
   );
