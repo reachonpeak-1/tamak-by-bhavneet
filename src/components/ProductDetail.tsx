@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import type { Product } from "@/lib/types";
 import { inr } from "@/lib/format";
 import { useStore } from "./StoreProvider";
@@ -13,6 +13,7 @@ export default function ProductDetail({ p }: { p: Product }) {
   const { addToBag, toggleWish, isWished, toast } = useStore();
   const [active, setActive] = useState(0);
   const [qty, setQty] = useState(1);
+  const touch = useRef<{ x0: number | null; dx: number }>({ x0: null, dx: 0 });
   const saved = isWished(p.id);
 
   // use product gallery directly
@@ -32,7 +33,59 @@ export default function ProductDetail({ p }: { p: Product }) {
   return (
     <div className="pdp">
       <div className="pdp__gallery">
-        <div className={`pdp__main frame ${p.panel}`}>
+        <div
+          className={`pdp__main frame ${p.panel}`}
+          onTouchStart={(e) => {
+            if (gallery.length <= 1) return;
+            touch.current = { x0: e.touches[0].clientX, dx: 0 };
+          }}
+          onTouchMove={(e) => {
+            if (gallery.length <= 1 || touch.current.x0 === null) return;
+            touch.current.dx = e.touches[0].clientX - touch.current.x0;
+          }}
+          onTouchEnd={() => {
+            if (gallery.length <= 1 || touch.current.x0 === null) return;
+            const dx = touch.current.dx;
+            if (Math.abs(dx) > 40) {
+              if (dx < 0) {
+                setActive((prev) => (prev + 1) % gallery.length);
+              } else {
+                setActive((prev) => (prev - 1 + gallery.length) % gallery.length);
+              }
+            }
+            touch.current.x0 = null;
+          }}
+          onTouchCancel={() => {
+            touch.current.x0 = null;
+          }}
+          onMouseDown={(e) => {
+            if (gallery.length <= 1) return;
+            touch.current = { x0: e.clientX, dx: 0 };
+          }}
+          onMouseMove={(e) => {
+            if (gallery.length <= 1 || touch.current.x0 === null) return;
+            const dx = e.clientX - touch.current.x0;
+            if (Math.abs(dx) > 5) {
+              e.preventDefault();
+            }
+            touch.current.dx = dx;
+          }}
+          onMouseUp={() => {
+            if (gallery.length <= 1 || touch.current.x0 === null) return;
+            const dx = touch.current.dx;
+            if (Math.abs(dx) > 40) {
+              if (dx < 0) {
+                setActive((prev) => (prev + 1) % gallery.length);
+              } else {
+                setActive((prev) => (prev - 1 + gallery.length) % gallery.length);
+              }
+            }
+            touch.current.x0 = null;
+          }}
+          onMouseLeave={() => {
+            touch.current.x0 = null;
+          }}
+        >
           {main?.url ? (
             <Image
               src={main.fullUrl || main.url || ""}
@@ -43,6 +96,7 @@ export default function ProductDetail({ p }: { p: Product }) {
               placeholder={main.blurDataURL ? "blur" : "empty"}
               blurDataURL={main.blurDataURL}
               style={{ objectFit: "cover" }}
+              draggable={false}
             />
           ) : (
             <div className={`motif ${p.tone}`}>
@@ -50,6 +104,31 @@ export default function ProductDetail({ p }: { p: Product }) {
                 <use href={`#${p.motif}`} />
               </svg>
             </div>
+          )}
+
+          {gallery.length > 1 && (
+            <>
+              <button
+                className="pdp__nav pdp__nav--prev"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActive((prev) => (prev - 1 + gallery.length) % gallery.length);
+                }}
+                aria-label="Previous image"
+              >
+                <svg viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7" /></svg>
+              </button>
+              <button
+                className="pdp__nav pdp__nav--next"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActive((prev) => (prev + 1) % gallery.length);
+                }}
+                aria-label="Next image"
+              >
+                <svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" /></svg>
+              </button>
+            </>
           )}
         </div>
         {gallery.length > 1 && (

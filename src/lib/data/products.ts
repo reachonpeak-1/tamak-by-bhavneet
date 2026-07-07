@@ -82,9 +82,10 @@ const fetchAll = unstable_cache(readProductsFromDb, ["products:all"], { tags: ["
 export const getAllProducts = cache((): Promise<Product[]> => fetchAll());
 
 /**
- * Admin read — always fresh from Firestore so edits/creates reflect immediately,
- * without waiting for the ISR cache tag to purge. React-cache()d to dedupe within
- * a single request render.
+ * Uncached read straight from Firestore. Admin PAGES must use getAllProducts()
+ * instead — mutations bump the "products" tag with {expire:0} so the cached
+ * read is already immediate, and this full-collection read is expensive.
+ * Reserved for rare one-shot API actions (Excel export, newsletter send).
  */
 export const getAllProductsFresh = cache((): Promise<Product[]> => readProductsFromDb());
 

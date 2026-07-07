@@ -25,6 +25,8 @@ export const CONTENT_SCHEMA: Record<ContentSection, { title: string; group: stri
         { key: "sub", label: "Subtitle", type: "textarea" },
         { key: "image", label: "Background image", type: "image" },
         { key: "pos", label: "Image position (e.g. center top)", type: "text" },
+        { key: "tone", label: "Color tone", type: "select", options: ["light", "dark"] },
+        { key: "layout", label: "Layout style", type: "select", options: ["full", "split"] },
         { key: "cta", label: "Buttons", type: "list", itemLabel: "Button", fields: link },
       ] },
     ],

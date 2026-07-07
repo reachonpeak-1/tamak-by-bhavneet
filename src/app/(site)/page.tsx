@@ -1,5 +1,4 @@
 import Hero from "@/components/Hero";
-import TrustBar from "@/components/TrustBar";
 import Marquee from "@/components/Marquee";
 import CategoryRail from "@/components/CategoryRail";
 import ProductRail from "@/components/ProductRail";
@@ -13,10 +12,10 @@ import { getContent } from "@/lib/data/content";
 import { listCategories } from "@/lib/data/categories";
 
 export default async function Home() {
-  const [newIn, mostLoved, hero, ann, trust, promise, testimonials, categoryRail, categories, story, storeInfo, newsletter] =
+  const [newIn, mostLoved, hero, ann, promise, testimonials, categoryRail, categories, story, storeInfo, newsletter] =
     await Promise.all([
       getNewIn(), getMostLoved(),
-      getContent("hero"), getContent("announcements"), getContent("trust"), getContent("promise"),
+      getContent("hero"), getContent("announcements"), getContent("promise"),
       getContent("testimonials"), getContent("categoryRail"), listCategories(), getContent("story"), getContent("storeInfo"),
       getContent("newsletter"),
     ]);
@@ -24,7 +23,6 @@ export default async function Home() {
   return (
     <main>
       <Hero slides={hero.slides} />
-      <TrustBar items={trust.items} />
       <Marquee words={ann.marquee} />
       <CategoryRail data={categoryRail} cats={categories} />
       <ProductRail

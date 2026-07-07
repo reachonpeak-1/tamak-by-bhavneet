@@ -1,4 +1,4 @@
-import { getAllProductsFresh } from "@/lib/data/products";
+import { getAllProducts } from "@/lib/data/products";
 import { listCampaigns } from "@/lib/data/campaigns";
 import { countSubscribers } from "@/lib/data/subscribers";
 import NewsletterComposer from "@/components/admin/NewsletterComposer";
@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export default async function NewsletterPage() {
   const [products, campaigns, counts] = await Promise.all([
-    getAllProductsFresh(),
+    getAllProducts(),
     listCampaigns(),
     countSubscribers(),
   ]);

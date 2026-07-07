@@ -34,7 +34,7 @@ const DEFAULT_SLIDES = [
     sub: "A small-batch drop of organza, Chanderi and mul-cotton everyday luxe — once the weave is retired, it’s gone.",
     cta: [{ label: "Shop New In", href: "/shop?sort=new" }, { label: "Browse All", href: "/shop" }],
     image: "/hero/hero-noir-wide.png",
-    tone: "light" as const,
+    tone: "dark" as const,
     layout: "full" as const,
     pos: "center top",
   },
@@ -49,11 +49,13 @@ type Slide = {
 export default function Hero({ slides = DEFAULT_SLIDES }: { slides?: Slide[] }) {
   const SLIDES = (slides.length ? slides : DEFAULT_SLIDES).map((s) => ({
     ...s,
-    tone: (s as Slide).tone ?? "light",
+    tone: (s as Slide).tone ?? (s.image?.includes("noir") ? "dark" : "light"),
     layout: (s as Slide).layout ?? "full",
   }));
   const n = SLIDES.length;
   const [idx, setIdx] = useState(0);
+  const [dragOffset, setDragOffset] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
   const trackRef = useRef<HTMLDivElement>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const touch = useRef<{ x0: number | null; dx: number }>({ x0: null, dx: 0 });
@@ -127,20 +129,69 @@ export default function Hero({ slides = DEFAULT_SLIDES }: { slides?: Slide[] }) 
     >
       <div className="hero__viewport">
         <div
-          className="hero__track"
+          className={`hero__track ${isDragging ? "is-dragging" : ""}`}
           ref={trackRef}
-          style={{ transform: `translate3d(-${idx * 100}%, 0, 0)` }}
+          style={{ transform: `translate3d(calc(-${idx * 100}% + ${dragOffset}px), 0, 0)` }}
           onTouchStart={(e) => {
             touch.current = { x0: e.touches[0].clientX, dx: 0 };
+            setIsDragging(true);
             stop();
           }}
           onTouchMove={(e) => {
-            if (touch.current.x0 !== null) touch.current.dx = e.touches[0].clientX - touch.current.x0;
+            if (touch.current.x0 !== null) {
+              const dx = e.touches[0].clientX - touch.current.x0;
+              touch.current.dx = dx;
+              setDragOffset(dx);
+            }
           }}
           onTouchEnd={() => {
+            setIsDragging(false);
+            setDragOffset(0);
             if (Math.abs(touch.current.dx) > 45) go(idx + (touch.current.dx < 0 ? 1 : -1));
             touch.current.x0 = null;
             start();
+          }}
+          onTouchCancel={() => {
+            setIsDragging(false);
+            setDragOffset(0);
+            touch.current.x0 = null;
+            start();
+          }}
+          onMouseDown={(e) => {
+            touch.current = { x0: e.clientX, dx: 0 };
+            setIsDragging(true);
+            stop();
+          }}
+          onMouseMove={(e) => {
+            if (touch.current.x0 !== null) {
+              const dx = e.clientX - touch.current.x0;
+              if (Math.abs(dx) > 5) {
+                e.preventDefault();
+              }
+              touch.current.dx = dx;
+              setDragOffset(dx);
+            }
+          }}
+          onMouseUp={() => {
+            if (touch.current.x0 === null) return;
+            setIsDragging(false);
+            setDragOffset(0);
+            if (Math.abs(touch.current.dx) > 45) {
+              go(idx + (touch.current.dx < 0 ? 1 : -1));
+            }
+            touch.current.x0 = null;
+            start();
+          }}
+          onMouseLeave={() => {
+            if (touch.current.x0 !== null) {
+              setIsDragging(false);
+              setDragOffset(0);
+              if (Math.abs(touch.current.dx) > 45) {
+                go(idx + (touch.current.dx < 0 ? 1 : -1));
+              }
+              touch.current.x0 = null;
+              start();
+            }
           }}
         >
           {SLIDES.map((s, i) => (
@@ -158,6 +209,7 @@ export default function Hero({ slides = DEFAULT_SLIDES }: { slides?: Slide[] }) 
                   priority={i === 0}
                   sizes="100vw"
                   style={{ objectFit: "cover", objectPosition: s.pos ?? "center" }}
+                  draggable={false}
                 />
               </div>
               <div className="hero__scrim" />

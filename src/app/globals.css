@@ -599,9 +599,10 @@ h1,h2,h3,h4{font-family:var(--serif);font-weight:500;line-height:1.05;letter-spa
 /* ============================================================
    HERO — asymmetric editorial split
    ============================================================ */
-.hero{position:relative;overflow:hidden;margin-top:-82px}
+.hero{position:relative;overflow:hidden;margin-top:-82px;touch-action:pan-y;user-select:none;-webkit-user-select:none}
 .hero__viewport{overflow:hidden}
 .hero__track{display:flex;will-change:transform;transition:transform .8s var(--ease)}
+.hero__track.is-dragging{transition:none!important}
 .hero__slide{flex:0 0 100%;display:grid;grid-template-columns:1.05fr .95fr;min-height:min(86vh,720px)}
 .hero__copy{display:flex;flex-direction:column;justify-content:center;padding:clamp(2rem,6vw,5rem) clamp(1.1rem,5vw,4.5rem) clamp(4.6rem,8vw,6rem);background:var(--bg);position:relative}
 .hero__copy .eyebrow{margin-bottom:1.15rem}
@@ -1868,7 +1869,26 @@ h1,h2,h3,h4{font-family:var(--serif);font-weight:500;line-height:1.05;letter-spa
 .pdp{display:grid;grid-template-columns:1.05fr .95fr;gap:clamp(1.6rem,4vw,3.5rem);align-items:start}
 @media(max-width:860px){.pdp{grid-template-columns:1fr;gap:1.6rem}}
 .pdp__gallery{display:flex;flex-direction:column;gap:.7rem}
-.pdp__main{position:relative;aspect-ratio:4/5;border-radius:5px;overflow:hidden}
+.pdp__main{position:relative;aspect-ratio:4/5;border-radius:5px;overflow:hidden;touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.pdp__nav{
+  position:absolute;top:50%;transform:translateY(-50%);
+  width:40px;height:40px;border-radius:50%;
+  background:rgba(250,244,236,0.75);backdrop-filter:blur(4px);
+  border:1px solid var(--line-2);display:grid;place-items:center;
+  color:var(--ink);cursor:pointer;z-index:10;
+  transition:opacity 0.3s var(--ease),background 0.3s var(--ease),transform 0.3s var(--ease);
+  box-shadow:0 4px 12px rgba(30,22,14,0.08);
+}
+.pdp__nav:hover{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.pdp__nav--prev{left:12px}
+.pdp__nav--prev:hover{transform:translateY(-50%) scale(1.05) translateX(-2px)}
+.pdp__nav--next{right:12px}
+.pdp__nav--next:hover{transform:translateY(-50%) scale(1.05) translateX(2px)}
+.pdp__nav svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2}
+@media(min-width:861px){
+  .pdp__nav{opacity:0;pointer-events:none}
+  .pdp__main:hover .pdp__nav{opacity:1;pointer-events:auto}
+}
 .pdp__thumbs{display:flex;gap:.55rem;flex-wrap:wrap}
 .pdp__thumb{position:relative;width:70px;aspect-ratio:4/5;border-radius:3px;overflow:hidden;border:1px solid var(--line);cursor:pointer;opacity:.7;transition:.2s}
 .pdp__thumb.active,.pdp__thumb:hover{opacity:1;border-color:var(--gold)}

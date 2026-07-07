@@ -1,17 +1,11 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/firebase/requireAdmin";
 import { adminDb } from "@/lib/firebase/admin";
-import { normalizeProduct, slugify } from "@/lib/admin/product-input";
+import { normalizeProduct, slugify, nextProductId } from "@/lib/admin/product-input";
 import { logAudit } from "@/lib/audit";
 import { bumpProducts } from "@/lib/revalidate";
 
 export const runtime = "nodejs";
-
-async function nextId(): Promise<string> {
-  const snap = await adminDb().collection("products").get();
-  const max = snap.docs.reduce((m, d) => Math.max(m, Number(d.id.replace(/\D/g, "")) || 0), 0);
-  return `PROD_${max + 1}`;
-}
 
 // POST → create a new product, or duplicate one with { duplicateOf }.
 export async function POST(req: Request) {
@@ -25,7 +19,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const id = await nextId();
+  const id = await nextProductId();
   const now = new Date().toISOString();
 
   try {

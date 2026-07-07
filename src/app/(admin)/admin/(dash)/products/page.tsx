@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getAllProductsFresh } from "@/lib/data/products";
+import { getAllProducts } from "@/lib/data/products";
 import { inr } from "@/lib/format";
 import ProductRowActions from "@/components/admin/ProductRowActions";
 
@@ -9,7 +9,10 @@ const PAGE_SIZE = 20;
 
 export default async function ProductsPage({ searchParams }: { searchParams: Promise<{ q?: string; page?: string }> }) {
   const { q, page } = await searchParams;
-  let products = await getAllProductsFresh();
+  // Cached read: every product mutation bumps the "products" tag with
+  // {expire:0} (src/lib/revalidate.ts), so this is always up to date without
+  // re-reading the whole Firestore collection per request.
+  let products = await getAllProducts();
   if (q) {
     const t = q.toLowerCase();
     products = products.filter((p) => p.name.toLowerCase().includes(t) || p.category.toLowerCase().includes(t) || p.id.toLowerCase().includes(t));
@@ -30,7 +33,13 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
           <h1 className="adm-h">Products</h1>
           <p className="adm-sub">{total} items{pageCount > 1 ? ` · page ${current} of ${pageCount}` : ""}</p>
         </div>
-        <Link className="adm-btn adm-btn--gold" href="/admin/products/new">+ New product</Link>
+        <div className="adm-row">
+          {/* Plain <a>: file download from an API route (a Link would client-navigate). */}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+          <a className="adm-btn adm-btn--ghost" href="/api/admin/products/export">Download Excel</a>
+          <Link className="adm-btn adm-btn--ghost" href="/admin/products/import">Import Excel</Link>
+          <Link className="adm-btn adm-btn--gold" href="/admin/products/new">+ New product</Link>
+        </div>
       </div>
 
       <form className="adm-row" method="get" style={{ marginBottom: "1.2rem" }}>

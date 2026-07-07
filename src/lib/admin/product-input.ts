@@ -1,12 +1,14 @@
 import "server-only";
 import type { Product } from "@/lib/types";
+import { adminDb } from "@/lib/firebase/admin";
 
 export const slugify = (s: string) =>
   s.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
 
-const num = (v: unknown, min = 0) => Math.max(min, Math.round(Number(v) || 0));
-const str = (v: unknown) => String(v ?? "").trim();
-const arr = (v: unknown): string[] =>
+// Shared field sanitisers — also reused by the spreadsheet import (product-sheet.ts).
+export const num = (v: unknown, min = 0) => Math.max(min, Math.round(Number(v) || 0));
+export const str = (v: unknown) => String(v ?? "").trim();
+export const arr = (v: unknown): string[] =>
   Array.isArray(v)
     ? v.map((x) => String(x).trim()).filter(Boolean)
     : typeof v === "string"
@@ -81,4 +83,17 @@ export function normalizeProduct(b: Record<string, unknown>) {
     variants,
   };
   return out;
+}
+
+// Highest numeric suffix currently used across PROD_<n> doc ids. The spreadsheet
+// import reads this once and increments locally to mint ids for a batch of new
+// rows without re-querying per row.
+export async function currentMaxProductNum(): Promise<number> {
+  const snap = await adminDb().collection("products").get();
+  return snap.docs.reduce((m, d) => Math.max(m, Number(d.id.replace(/\D/g, "")) || 0), 0);
+}
+
+// Next free product id, e.g. "PROD_86".
+export async function nextProductId(): Promise<string> {
+  return `PROD_${(await currentMaxProductNum()) + 1}`;
 }

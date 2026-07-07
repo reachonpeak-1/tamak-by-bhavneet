@@ -7,6 +7,7 @@ export interface Link { label: string; href: string }
 export interface HeroSlide {
   eyebrow: string; title: string; em: string; sub: string;
   image: string; pos: string; cta: Link[];
+  tone?: string; layout?: string;
 }
 
 export const CONTENT_DEFAULTS = {
@@ -17,6 +18,7 @@ export const CONTENT_DEFAULTS = {
         title: "Rooted in tradition.", em: "Made to be yours.",
         sub: "Timeless ethnic wear crafted with heritage techniques and exquisite details — for every moment that matters.",
         image: "/hero/hero-ethnic-wide.jpg", pos: "center top",
+        tone: "light", layout: "full",
         cta: [{ label: "Shop Ethnic Wear", href: "/shop" }, { label: "Explore New In", href: "/shop?sort=new" }],
       },
       {
@@ -24,6 +26,7 @@ export const CONTENT_DEFAULTS = {
         title: "Woven for the", em: "day you’ll remember.",
         sub: "Lehengas and sarees in real zari and raw silk, cut to your measurements and embroidered entirely by hand.",
         image: "/hero/hero-blush-wide.jpg", pos: "center top",
+        tone: "light", layout: "full",
         cta: [{ label: "The Bridal Edit", href: "/shop?occasion=Bridal" }, { label: "Book a Fitting", href: "/#visit" }],
       },
       {
@@ -31,6 +34,7 @@ export const CONTENT_DEFAULTS = {
         title: "Fresh off", em: "the loom.",
         sub: "A small-batch drop of organza, Chanderi and mul-cotton everyday luxe — once the weave is retired, it’s gone.",
         image: "/hero/hero-noir-wide.png", pos: "center top",
+        tone: "dark", layout: "full",
         cta: [{ label: "Shop New In", href: "/shop?sort=new" }, { label: "Browse All", href: "/shop" }],
       },
     ] as HeroSlide[],
