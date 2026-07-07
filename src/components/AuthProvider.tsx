@@ -69,7 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signOut: async () => {
       await fbSignOut(getClientAuth());
     },
-    getToken: async () => (user ? user.getIdToken() : null),
+    getToken: async () => (user ? user.getIdToken(true) : null),
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

@@ -37,6 +37,7 @@ export async function priceCart(items: CartItemInput[]): Promise<PricedCart> {
   for (const it of items) {
     const p = priceMap.get(it.id);
     if (!p) throw new Error(`Unknown product: ${it.id}`);
+    if (p.active === false) throw new Error(`${p.name} is no longer available`);
     const qty = Math.max(1, Math.min(20, Math.floor(Number(it.qty) || 1)));
     // Omit size/color when unset — Firestore rejects `undefined` field values.
     lines.push({

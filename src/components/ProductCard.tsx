@@ -88,6 +88,7 @@ export default function ProductCard({ p, priority = false }: { p: Product; prior
 
         {/* Badges Stack */}
         <div className="prod-card__badges">
+          {p.active === false && <span className="prod-badge unavailable">Unavailable</span>}
           {p.tag && <span className={`prod-badge ${p.tag.toLowerCase()}`}>{p.tag}</span>}
           {discountPercent && <span className="prod-badge discount">-{discountPercent}%</span>}
         </div>

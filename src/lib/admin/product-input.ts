@@ -81,6 +81,7 @@ export function normalizeProduct(b: Record<string, unknown>) {
     blurDataURL: str(b.blurDataURL) || gallery[0]?.blurDataURL || "",
     gallery,
     variants,
+    active: b.active !== false,
   };
   return out;
 }

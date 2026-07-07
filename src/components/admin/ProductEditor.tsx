@@ -14,7 +14,7 @@ const MOTIFS = ["paisley", "mandala"];
 const TONES = ["m-gold", "m-cream"];
 const TAGS = ["", "New", "Sale", "Bestseller"];
 
-type Draft = Omit<Partial<Product>, "gallery" | "variants"> & { gallery: GItem[]; variants: never[] };
+type Draft = Omit<Partial<Product>, "gallery" | "variants"> & { gallery: GItem[]; variants: never[]; active?: boolean };
 
 export default function ProductEditor({ product, categories = [] }: { product?: Product; categories?: Category[] }) {
   const { getToken } = useAuth();
@@ -37,6 +37,7 @@ export default function ProductEditor({ product, categories = [] }: { product?: 
       motif: p?.motif ?? "paisley", tone: p?.tone ?? "m-gold",
       gallery: (p?.gallery as GItem[]) ?? [],
       variants: [],
+      active: p?.active ?? true,
     };
   });
   const [busy, setBusy] = useState(false);
@@ -81,6 +82,28 @@ export default function ProductEditor({ product, categories = [] }: { product?: 
     }
   }
 
+  async function remove() {
+    if (!confirm("Delete this product permanently?")) return;
+    setBusy(true);
+    try {
+      const token = await getToken();
+      const res = await fetch(`/api/admin/products/${product!.id}`, {
+        method: "DELETE",
+        headers: { authorization: `Bearer ${token}` },
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j.error || "Delete failed");
+      clearDraft();
+      toast("Deleted");
+      router.push("/admin/products");
+      router.refresh();
+    } catch (e) {
+      toast((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const Text = (label: string, k: keyof Draft, ph = "") => (
     <label className="adm-field">
       <span>{label}</span>
@@ -100,6 +123,21 @@ export default function ProductEditor({ product, categories = [] }: { product?: 
         {opts.map((o) => <option key={o} value={o}>{o || "—"}</option>)}
       </select>
     </label>
+  );
+  const Checkbox = (label: string, k: keyof Draft) => (
+    <div className="adm-field">
+      <span>{label}</span>
+      <div style={{ display: "flex", alignItems: "center", minHeight: "38px" }}>
+        <label className="adm-switch">
+          <input
+            type="checkbox"
+            checked={!!d[k]}
+            onChange={(e) => set(k, e.target.checked as Draft[typeof k])}
+          />
+          <span className="adm-switch-slider" />
+        </label>
+      </div>
+    </div>
   );
 
   return (
@@ -171,11 +209,18 @@ export default function ProductEditor({ product, categories = [] }: { product?: 
         <ImageUploader value={d.gallery} prefix={prefix} onChange={(g) => set("gallery", g)} />
       </div>
 
-      <div className="adm-actions" style={{ marginTop: "1rem" }}>
-        <button className="adm-btn adm-btn--solid" disabled={busy} onClick={save}>
-          {busy ? "Saving…" : isNew ? "Create product" : "Save changes"}
-        </button>
-        <button className="adm-btn adm-btn--ghost" type="button" onClick={() => router.push("/admin/products")}>Cancel</button>
+      <div className="adm-actions" style={{ marginTop: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: "0.8rem" }}>
+          <button className="adm-btn adm-btn--solid" disabled={busy} onClick={save}>
+            {busy ? "Saving…" : isNew ? "Create product" : "Save changes"}
+          </button>
+          <button className="adm-btn adm-btn--ghost" type="button" onClick={() => router.push("/admin/products")}>Cancel</button>
+        </div>
+        {!isNew && (
+          <button className="adm-btn adm-btn--danger" type="button" disabled={busy} onClick={remove}>
+            Delete product
+          </button>
+        )}
       </div>
     </div>
   );

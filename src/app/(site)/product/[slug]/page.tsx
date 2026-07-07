@@ -1,14 +1,14 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getAllProducts, getProduct } from "@/lib/data/products";
+import { getActiveProducts, getProduct } from "@/lib/data/products";
 import { inr } from "@/lib/format";
 import ProductDetail from "@/components/ProductDetail";
 import ProductRail from "@/components/ProductRail";
 
-// Pre-render every product page → static + instant from the edge. New products
+// Pre-render every active product page → static + instant from the edge. New products
 // added later render on demand (dynamicParams defaults to true).
 export async function generateStaticParams() {
-  return (await getAllProducts()).map((p) => ({ slug: p.slug }));
+  return (await getActiveProducts()).map((p) => ({ slug: p.slug }));
 }
 
 interface Props {
@@ -52,7 +52,7 @@ export default async function ProductPage({ params }: Props) {
     },
   };
 
-  const related = (await getAllProducts()).filter((x) => x.category === p.category && x.id !== p.id).slice(0, 10);
+  const related = (await getActiveProducts()).filter((x) => x.category === p.category && x.id !== p.id).slice(0, 10);
 
   return (
     <main className="wrap page">

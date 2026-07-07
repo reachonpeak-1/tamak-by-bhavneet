@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { getAllProducts } from "@/lib/data/products";
+import { getActiveProducts } from "@/lib/data/products";
 import { listCategories } from "@/lib/data/categories";
 import ShopClientView from "@/components/ShopClientView";
 
@@ -19,7 +19,7 @@ export default async function Shop({ searchParams }: Props) {
   const activeSub = sub?.replace(/\+/g, " ");
   const query = (q ?? "").trim();
 
-  const [allProducts, categories] = await Promise.all([getAllProducts(), listCategories()]);
+  const [allProducts, categories] = await Promise.all([getActiveProducts(), listCategories()]);
 
   const heading = query
     ? `Search Results`

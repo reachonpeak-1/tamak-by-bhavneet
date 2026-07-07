@@ -59,7 +59,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
               <td data-label="Price">₹{inr(p.price)}</td>
               <td data-label="Stock">{p.stock <= 3 ? <span className="adm-pill adm-pill--low">{p.stock}</span> : p.stock}</td>
               <td data-label="Tag">{p.tag ? <span className="adm-pill">{p.tag}</span> : "—"}</td>
-              <td style={{ textAlign: "right" }}><ProductRowActions id={p.id} /></td>
+              <td style={{ textAlign: "right" }}><ProductRowActions product={p} /></td>
             </tr>
           ))}
         </tbody>
@@ -101,7 +101,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
                 )}
               </div>
               <div className="adm-product-card-mobile__actions">
-                <ProductRowActions id={p.id} />
+                <ProductRowActions product={p} />
               </div>
             </div>
           </div>

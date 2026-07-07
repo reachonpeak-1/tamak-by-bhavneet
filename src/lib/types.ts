@@ -62,6 +62,8 @@ export interface Product {
   gallery: GalleryImage[];
   /** colour variants; empty for single-colour products (legacy `color`/`swatches`). */
   variants: Variant[];
+  /** Whether this product is visible to customers on the storefront; defaults to true */
+  active?: boolean;
 }
 
 export interface CartLine {

@@ -73,7 +73,9 @@ export function useGallery(prefix = "", limit = 60) {
         setHasMore(Boolean(j.nextPageToken));
         setImages((prev) => (reset ? j.images : [...prev, ...j.images]));
       } catch (e) {
-        setError((e as Error).message);
+        const errorMsg = (e as Error).message;
+        console.error("[Gallery] Error:", errorMsg, "Token:", token ? "present" : "null");
+        setError(errorMsg);
       } finally {
         setLoading(false);
       }

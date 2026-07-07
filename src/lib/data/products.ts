@@ -89,22 +89,27 @@ export const getAllProducts = cache((): Promise<Product[]> => fetchAll());
  */
 export const getAllProductsFresh = cache((): Promise<Product[]> => readProductsFromDb());
 
+/** Storefront read — only active products visible to customers. */
+export const getActiveProducts = cache(async (): Promise<Product[]> =>
+  (await getAllProducts()).filter((p) => p.active !== false)
+);
+
 export const getCategories = cache(async (): Promise<string[]> =>
-  Array.from(new Set((await getAllProducts()).map((p) => p.category))).sort()
+  Array.from(new Set((await getActiveProducts()).map((p) => p.category))).sort()
 );
 
 export const getNewIn = cache(async (): Promise<Product[]> =>
-  (await getAllProducts()).filter((p) => p.tag === "New").slice(0, 12)
+  (await getActiveProducts()).filter((p) => p.tag === "New").slice(0, 12)
 );
 
 export const getMostLoved = cache(async (): Promise<Product[]> =>
-  [...(await getAllProducts())].sort((a, b) => b.rating - a.rating || b.reviews - a.reviews).slice(0, 12)
+  [...(await getActiveProducts())].sort((a, b) => b.rating - a.rating || b.reviews - a.reviews).slice(0, 12)
 );
 
 export const getProduct = cache(async (slug: string): Promise<Product | undefined> => {
   // Normalize the incoming slug: lowercase, replace spaces/special chars with hyphens
   const normalized = slug.toLowerCase().trim().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-  const products = await getAllProducts();
+  const products = await getActiveProducts();
   // Try exact match first, then normalized match for backwards compatibility
   return (
     products.find((p) => p.slug === slug) ||
@@ -113,5 +118,5 @@ export const getProduct = cache(async (slug: string): Promise<Product | undefine
 });
 
 export const byCategory = cache(async (cat: string): Promise<Product[]> =>
-  (await getAllProducts()).filter((p) => p.category.toLowerCase() === cat.toLowerCase())
+  (await getActiveProducts()).filter((p) => p.category.toLowerCase() === cat.toLowerCase())
 );

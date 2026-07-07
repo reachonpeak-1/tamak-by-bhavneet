@@ -33,8 +33,28 @@ export default function GalleryPicker({
 }) {
   const { images, loading, error, hasMore, load } = useGallery("", 30);
   const [selected, setSelected] = useState<Record<string, GalleryItem>>({});
+  const [deleting, setDeleting] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const added = new Set(existing);
+
+  async function deleteImage(img: GalleryItem, e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!confirm(`Delete "${img.originalFileName || img.path}"?`)) return;
+
+    setDeleting(img.id);
+    try {
+      const res = await fetch(`/api/admin/gallery?id=${img.id}&storageKey=${encodeURIComponent(img.path)}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Delete failed");
+      // Reload gallery after deletion
+      load(true);
+    } catch (e) {
+      alert((e as Error).message);
+    } finally {
+      setDeleting(null);
+    }
+  }
 
   // Load the first page each time the modal opens. (Selection is cleared on close,
   // so it starts empty — avoids a synchronous setState inside this effect.)
@@ -130,28 +150,59 @@ export default function GalleryPicker({
             {images.map((img) => {
               const isAdded = added.has(img.path);
               const isSel = Boolean(selected[img.path]);
+              const isDel = deleting === img.id;
               return (
-                <button
-                  type="button"
+                <div
                   key={img.name}
-                  className={`adm-pick${isSel ? " is-selected" : ""}${isAdded ? " is-added" : ""}`}
-                  onClick={() => toggle(img)}
-                  title={img.path}
+                  style={{ position: "relative" }}
                 >
-                  {/* Use thumbUrl (150px) + blur-up for blazing-fast grid loading */}
-                  <Image
-                    src={img.thumbUrl || img.url}
-                    alt=""
-                    width={120}
-                    height={160}
-                    loading="lazy"
-                    sizes="120px"
-                    placeholder={img.blurDataURL ? "blur" : "empty"}
-                    blurDataURL={img.blurDataURL || undefined}
-                  />
-                  {isAdded && <span className="adm-pick__added">Added</span>}
-                  {isSel && <span className="adm-pick__check">✓</span>}
-                </button>
+                  <button
+                    type="button"
+                    className={`adm-pick${isSel ? " is-selected" : ""}${isAdded ? " is-added" : ""}`}
+                    onClick={() => toggle(img)}
+                    title={img.path}
+                  >
+                    {/* Use thumbUrl (150px) + blur-up for blazing-fast grid loading */}
+                    <Image
+                      src={img.thumbUrl || img.url}
+                      alt=""
+                      width={120}
+                      height={160}
+                      loading="lazy"
+                      sizes="120px"
+                      placeholder={img.blurDataURL ? "blur" : "empty"}
+                      blurDataURL={img.blurDataURL || undefined}
+                    />
+                    {isAdded && <span className="adm-pick__added">Added</span>}
+                    {isSel && <span className="adm-pick__check">✓</span>}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => deleteImage(img, e)}
+                    disabled={isDel}
+                    style={{
+                      position: "absolute",
+                      top: "4px",
+                      right: "4px",
+                      width: "28px",
+                      height: "28px",
+                      padding: 0,
+                      background: "rgba(200,0,0,0.8)",
+                      border: "none",
+                      borderRadius: "4px",
+                      color: "white",
+                      cursor: isDel ? "not-allowed" : "pointer",
+                      fontSize: "14px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      opacity: isDel ? 0.6 : 1,
+                    }}
+                    title="Delete image"
+                  >
+                    {isDel ? "⏳" : "🗑"}
+                  </button>
+                </div>
               );
             })}
           </div>

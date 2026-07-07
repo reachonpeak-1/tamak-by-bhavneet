@@ -2144,6 +2144,53 @@ h1,h2,h3,h4{font-family:var(--serif);font-weight:500;line-height:1.05;letter-spa
 .adm-field > span{font-size:.74rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600}
 .adm-in,.adm-select,.adm-textarea{width:100%;padding:.62rem .8rem;border:1px solid var(--line);border-radius:6px;background:var(--paper);font-family:var(--body);font-size:.95rem;color:var(--ink);transition:.2s}
 .adm-in:focus,.adm-select:focus,.adm-textarea:focus{outline:none;border-color:var(--gold)}
+
+/* Toggle Switch */
+.adm-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  user-select: none;
+}
+.adm-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+.adm-switch-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: var(--cream-2, #eae0cf);
+  transition: background-color .25s ease, border-color .25s ease, box-shadow .25s ease;
+  border-radius: 24px;
+  border: 1px solid var(--line-2, #d5c8b0);
+}
+.adm-switch-slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background-color: var(--paper, #fff);
+  transition: transform .25s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+.adm-switch input:checked + .adm-switch-slider {
+  background-color: var(--gold, #a9823a);
+  border-color: var(--gold, #a9823a);
+}
+.adm-switch input:checked + .adm-switch-slider:before {
+  transform: translateX(20px);
+}
+.adm-switch input:focus + .adm-switch-slider {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px rgba(169,130,58,0.15);
+}
 .adm-textarea{min-height:96px;resize:vertical;line-height:1.5}
 .adm-error{color:#9c3a31;font-size:.85rem;margin:.2rem 0 .8rem}
 .adm-ok{color:var(--gold-2);font-size:.85rem}
