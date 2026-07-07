@@ -23,11 +23,11 @@ export default function Contact() {
           <p><a href="mailto:care@tamak.in">care@tamak.in</a></p>
 
           <h3>Phone / WhatsApp</h3>
-          <p><a href="tel:+910000000000">+91 00000 00000</a> · Mon–Sat, 10am–7pm IST</p>
+          <p><a href="tel:+919501370920">+91 95013 70920</a> · Mon–Sat, 10am–7pm IST</p>
 
           <h3>Atelier Location</h3>
           <p>
-            SCO - 42, Dabwali Rd, Ganpati Enclave,<br />
+            SCO - 40, Dabwali Rd, Ganpati Enclave,<br />
             Bathinda, Punjab 151001, India
           </p>
 

@@ -58,7 +58,7 @@ export function normalizeProduct(b: Record<string, unknown>) {
     : [];
   const out = {
     name: str(b.name),
-    slug: str(b.slug) || slugify(str(b.name)),
+    slug: slugify(str(b.slug) || str(b.name)),
     fabric: str(b.fabric),
     price: num(b.price),
     oldPrice: b.oldPrice ? num(b.oldPrice) : null,

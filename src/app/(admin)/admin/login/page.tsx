@@ -1,13 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { getClientAuth } from "@/lib/firebase/client";
 
 export default function AdminLogin() {
   const { signInEmail, signInGoogle } = useAuth();
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -28,8 +26,11 @@ export default function AdminLogin() {
       const j = await res.json().catch(() => ({}));
       throw new Error(j.error || "This account is not an admin");
     }
+    // Use full page reload instead of client-side navigation to ensure
+    // the session cookie is sent with the request to the server
     const next = new URLSearchParams(window.location.search).get("next");
-    router.replace(next && next.startsWith("/admin") ? next : "/admin");
+    const target = next && next.startsWith("/admin") ? next : "/admin";
+    window.location.href = target;
   }
 
   async function run(fn: () => Promise<void>) {
@@ -38,8 +39,10 @@ export default function AdminLogin() {
     try {
       await fn();
       await establishSession();
+      // Don't set busy=false here — router.replace will navigate away
     } catch (e) {
-      setErr((e as Error).message || "Could not sign in");
+      const message = (e as Error).message || "Could not sign in";
+      setErr(message);
       await fetch("/api/admin/session", { method: "DELETE" }).catch(() => {});
       setBusy(false);
     }

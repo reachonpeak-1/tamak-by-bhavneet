@@ -2016,9 +2016,9 @@ h1,h2,h3,h4{font-family:var(--serif);font-weight:500;line-height:1.05;letter-spa
 .hero__slide.is-active .hero__bg img{transform:scale(1.06);transition:transform 9s var(--ease)}
 .hero__scrim{position:absolute;inset:0;z-index:1;pointer-events:none}
 .hero__slide.tone-light .hero__scrim{
-  background:linear-gradient(90deg,rgba(245,239,229,.94) 0%,rgba(245,239,229,.66) 24%,rgba(245,239,229,.18) 48%,rgba(245,239,229,0) 68%)}
+  background:linear-gradient(90deg,rgba(245,239,229,.98) 0%,rgba(245,239,229,.93) 30%,rgba(245,239,229,.85) 45%,rgba(245,239,229,.45) 62%,rgba(245,239,229,0) 80%)}
 .hero__slide.tone-dark .hero__scrim{
-  background:linear-gradient(90deg,rgba(18,12,8,.8) 0%,rgba(18,12,8,.48) 30%,rgba(18,12,8,.08) 58%,rgba(18,12,8,0) 76%)}
+  background:linear-gradient(90deg,rgba(18,12,8,.94) 0%,rgba(18,12,8,.86) 30%,rgba(18,12,8,.72) 45%,rgba(18,12,8,.32) 62%,rgba(18,12,8,0) 80%)}
 
 .hero__copy{position:relative;z-index:2;max-width:46%;display:flex;flex-direction:column;
   justify-content:center;background:none;
@@ -2044,9 +2044,9 @@ h1,h2,h3,h4{font-family:var(--serif);font-weight:500;line-height:1.05;letter-spa
   .hero__slide{min-height:78vh}
   .hero__copy{max-width:none;padding:2rem var(--pad) 4.8rem}
   .hero__slide.tone-light .hero__scrim{
-    background:linear-gradient(180deg,rgba(245,239,229,.45) 0%,rgba(245,239,229,.18) 38%,rgba(245,239,229,.75) 100%)}
+    background:linear-gradient(180deg,rgba(245,239,229,.2) 0%,rgba(245,239,229,.6) 40%,rgba(245,239,229,.92) 80%,rgba(245,239,229,.98) 100%)}
   .hero__slide.tone-dark .hero__scrim{
-    background:linear-gradient(180deg,rgba(18,12,8,.4) 0%,rgba(18,12,8,.22) 40%,rgba(18,12,8,.65) 100%)}
+    background:linear-gradient(180deg,rgba(18,12,8,.2) 0%,rgba(18,12,8,.6) 40%,rgba(18,12,8,.92) 80%,rgba(18,12,8,.98) 100%)}
   .hero h1{font-size:clamp(2.1rem,6.5vw,3.6rem)}
   .hero h1 em{white-space:normal}
   .hero__sub{font-size:clamp(.95rem,2.8vw,1.05rem);line-height:1.5;margin:1rem 0 1.5rem;max-width:38ch}
@@ -2058,7 +2058,7 @@ h1,h2,h3,h4{font-family:var(--serif);font-weight:500;line-height:1.05;letter-spa
   .hero h1{font-size:clamp(2.6rem,4.5vw,4.5rem);white-space:nowrap}
 }
 .hero__slide.tone-dark .hero__scrim{
-  background:linear-gradient(90deg,rgba(16,10,6,.88) 0%,rgba(16,10,6,.62) 30%,rgba(16,10,6,.22) 56%,rgba(16,10,6,0) 76%)}
+  background:linear-gradient(90deg,rgba(16,10,6,.96) 0%,rgba(16,10,6,.90) 30%,rgba(16,10,6,.78) 45%,rgba(16,10,6,.38) 62%,rgba(16,10,6,0) 80%)}
 
 /* ============================================================
    Hero "split" layout — model photo anchored right, faded into the

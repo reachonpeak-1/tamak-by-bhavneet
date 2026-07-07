@@ -7,6 +7,7 @@ import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
   signOut as fbSignOut,
   type User,
 } from "firebase/auth";
@@ -44,7 +45,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading,
     configured: isFirebaseConfigured,
     signInGoogle: async () => {
-      await signInWithPopup(getClientAuth(), new GoogleAuthProvider());
+      try {
+        await signInWithPopup(getClientAuth(), new GoogleAuthProvider());
+      } catch (err: unknown) {
+        const error = err as any;
+        // Popup blocked — use redirect instead
+        if (error?.code === "auth/popup-blocked") {
+          await signInWithRedirect(getClientAuth(), new GoogleAuthProvider());
+        }
+        // For other errors, provide user feedback
+        if (error?.code && error.code !== "auth/popup-blocked") {
+          throw new Error("Google sign-in failed. Please check your browser permissions and try again.");
+        }
+        throw error;
+      }
     },
     signInEmail: async (email, pw) => {
       await signInWithEmailAndPassword(getClientAuth(), email, pw);

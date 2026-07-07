@@ -19,7 +19,7 @@ export interface Settings {
 export const SETTINGS_DEFAULTS: Settings = {
   storeName: "तमक by Bhavneet",
   email: "care@tamak.in",
-  phone: "+91 00000 00000",
+  phone: "+91 95013 70920",
   whatsapp: "",
   razorpayMode: "test",
   freeShipThreshold: 0,
