@@ -1,75 +1,49 @@
 # तमक (Tamak) — Setup & Deploy
 
-Next.js 16 (App Router, TS) · Firebase (Firestore + Auth + Storage) · Razorpay · deploy to Vercel.
-Everything runs on **free tiers**.
+Next.js 16 (App Router, TS) · Supabase (Postgres + Auth + Storage) · Razorpay · deploy to Vercel.
 
-## 1. Local dev (works now, no keys needed)
+## 1. Local dev
 
 ```bash
 npm install
 npm run dev        # http://localhost:3000
 ```
 
-Without keys: the full storefront works (all 85 products, cart, wishlist, checkout UI).
-Product images show the woven-motif placeholder until you upload them (step 3).
+Without keys: the full storefront works (bundled products, cart, wishlist, checkout UI).
 Login / payments / admin activate once you add the keys below.
 
-Copy env template and fill in as you go:
+## 2. Supabase
+
+1. https://supabase.com/dashboard → **New project** (note the database password).
+2. Project Settings → **API Keys** → copy into `.env.local`:
+   - `NEXT_PUBLIC_SUPABASE_URL` — the project URL
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — the publishable key (`sb_publishable_…`)
+   - `SUPABASE_SECRET_KEY` — the secret key (`sb_secret_…`, server only)
+3. Apply the schema: paste `supabase/migrations/0001_init.sql` into the
+   **SQL Editor** and run it (or `npx supabase db push --db-url <connection-string>`).
+4. **Storage** → create a bucket named `media`, set it **Public**.
+5. Auth: Email/Password is on by default. Enable the **Google** provider in
+   Authentication → Providers if you want Google sign-in for customers.
+
+All tables have RLS enabled with **no policies** — the anon key can read/write
+nothing. Every read/write goes through the server-side service-role client
+(`src/lib/supabase/admin.ts`), mirroring the API-route guard architecture.
+
+## 3. Make yourself an admin
 
 ```bash
-cp .env.example .env.local
+# creates the user if needed, and flags profiles.is_admin:
+node scripts/set-admin.mjs you@email.com yourpassword
+# then sign in at /admin/login
 ```
 
-## 2. Firebase
-
-1. https://console.firebase.google.com → **Add project** (Spark/free plan).
-2. **Build → Firestore Database** → create (production mode).
-3. **Build → Storage** → get started.
-4. **Build → Authentication** → enable **Email/Password** and **Google**.
-5. Project settings → **General** → "Your apps" → Web app → copy config into the
-   `NEXT_PUBLIC_FIREBASE_*` vars in `.env.local`.
-6. Project settings → **Service accounts** → *Generate new private key* (JSON).
-   Put its values into `FIREBASE_ADMIN_PROJECT_ID`, `FIREBASE_ADMIN_CLIENT_EMAIL`,
-   `FIREBASE_ADMIN_PRIVATE_KEY` (keep the `\n`s). Set `FIREBASE_STORAGE_BUCKET`
-   (e.g. `your-project.appspot.com`).
-7. Publish security rules:
-   ```bash
-   # via Firebase console (paste files) or Firebase CLI:
-   firebase deploy --only firestore:rules,storage
-   ```
-   Rules are in `firestore.rules` and `storage.rules`.
-
-## 3. Images → Firebase Storage (fast loading)
-
-```bash
-node scripts/optimize-images.mjs   # already run: 2.5GB → 37MB masters + blur
-node scripts/upload-firebase.mjs   # uploads masters, writes _source/optimized/image-urls.json
-```
-
-`next/image` then serves AVIF/WebP at exact display size from Vercel's edge cache.
-
-## 4. Seed the catalog into Firestore
-
-```bash
-node scripts/build-catalog.mjs     # already run → src/data/products.json (85 products)
-node scripts/seed-firestore.mjs    # pushes products (with image URLs) to Firestore
-```
-
-## 5. Razorpay
+## 4. Razorpay
 
 1. https://dashboard.razorpay.com → Settings → **API Keys** → generate **Test** keys.
 2. Set `NEXT_PUBLIC_RAZORPAY_KEY_ID` (rzp_test_…) and `RAZORPAY_KEY_SECRET`.
 3. Test checkout with Razorpay's test cards. Go live later after KYC (swap to live keys).
 
-## 6. Make yourself an admin
-
-```bash
-# after signing up once at /account:
-node scripts/set-admin.mjs you@email.com
-# sign out & back in, then visit /admin
-```
-
-## 7. Deploy to Vercel
+## 5. Deploy to Vercel
 
 1. Push to GitHub.
 2. https://vercel.com → New Project → import the repo.
@@ -78,22 +52,37 @@ node scripts/set-admin.mjs you@email.com
 
 > Note: Vercel Hobby is for non-commercial use; upgrade to Pro for a live store.
 
+## Migration from Firebase (historical)
+
+The project originally ran on Firebase (Firestore + Auth + Storage) and was
+migrated to Supabase. One-time migration scripts live in `scripts/migrate/`:
+
+- `firestore-to-supabase.mjs` — copies all Firestore collections into Postgres
+  (rewrites storage URLs, converts Timestamps to ISO strings).
+- `storage-to-supabase.mjs` — copies Firebase Storage objects to the `media` bucket.
+- `storage-local-to-supabase.mjs` — same, but from a local folder mirror
+  (used because Firebase billing was delinquent and blocked downloads).
+
+Firebase customer accounts could not be migrated (password hashes are not
+exportable) — customers re-register with the same email; `/api/me/orders`
+matches historical orders by email as a fallback.
+
 ## Project map
 
 ```
-src/app            routes: / shop product/[slug] cart checkout wishlist account admin
-src/app/api        razorpay/order · razorpay/verify · order/cod · me/orders · admin/*
-src/components      UI (Header, Hero, ProductCard, …) + Store/Auth providers
-src/lib            products (catalog), pricing (server), firebase/{client,admin}
-src/data           products.json (generated catalog — committed)
-scripts            optimize-images · upload-firebase · build-catalog · seed-firestore · set-admin
-firestore.rules    storage.rules     security rules
-_source            raw photos + descriptions (gitignored, not deployed)
+src/app              routes: / shop product/[slug] cart checkout wishlist account admin
+src/app/api          razorpay/order · razorpay/verify · me/orders · newsletter · admin/*
+src/components       UI (Header, Hero, ProductCard, …) + Store/Auth providers
+src/lib              data/* (catalog, orders, …), pricing (server), supabase/{admin,client,server,guards}
+src/data             products.json (generated catalog — committed, DB fallback)
+supabase/migrations  0001_init.sql — full Postgres schema
+scripts              set-admin · seed-categories · migrate/*
 ```
 
 ## Security notes
 - Prices are **always recomputed server-side** (`src/lib/pricing.ts`) — client prices are never trusted.
 - Razorpay payments are **signature-verified** server-side before an order is saved.
-- Orders are written only via the Admin SDK; Firestore rules block client writes.
-- Admin routes require a verified Firebase ID token with the `admin` claim.
+- Orders are written only via the service-role client; RLS blocks all client access.
+- Admin API routes require a Supabase access token whose user has `profiles.is_admin`;
+  admin pages verify the cookie session the same way.
 - Secrets live in server-only env vars; security headers set in `next.config.ts`.

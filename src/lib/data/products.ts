@@ -1,6 +1,7 @@
-// Server-only product data layer. Firestore `products` is the SOURCE OF TRUTH;
-// the bundled src/data/products.json is only a seed/fallback so the storefront
-// still renders before the collection is seeded or if Firestore is unreachable.
+// Server-only product data layer. The Supabase `products` table is the SOURCE
+// OF TRUTH; the bundled src/data/products.json is only a seed/fallback so the
+// storefront still renders before the table is seeded or if Supabase is
+// unreachable.
 //
 // Reads are cached with unstable_cache (tag "products") and deduped per-render
 // with React cache(). Admin mutations call revalidateTag("products", {expire:0})
@@ -9,19 +10,19 @@ import "server-only";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import type { Product, GalleryImage, Variant } from "@/lib/types";
-import { adminDb } from "@/lib/firebase/admin";
+import { supabaseAdmin, publicStorageUrl } from "@/lib/supabase/admin";
 import raw from "@/data/products.json";
 
-const BUCKET = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
-// "storage" once images are uploaded to Firebase Storage + bucket made public;
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+// "storage" once images are uploaded to Supabase Storage (public `media` bucket);
 // "local" serves the committed copies under /public/products (default for dev).
 const IMAGE_ORIGIN = process.env.NEXT_PUBLIC_IMAGE_ORIGIN ?? "local";
 
 /** Resolve a Storage object key (e.g. "products/PROD_1/1.jpg") to a delivery URL. */
 export function storageUrl(key?: string): string | undefined {
   if (!key) return undefined;
-  if (IMAGE_ORIGIN === "storage" && BUCKET) {
-    return `https://storage.googleapis.com/${BUCKET}/${key}`;
+  if (IMAGE_ORIGIN === "storage" && SUPABASE_URL) {
+    return publicStorageUrl(key);
   }
   return `/${key}`; // local: /public/products/PROD_x/n.jpg
 }
@@ -33,7 +34,7 @@ type RawProduct = Record<string, unknown> & {
   variants?: { name: string; hex: string; stock: number; gallery?: RawImage[] }[];
 };
 
-// Prefer a stored absolute url (admin-uploaded → Firebase Storage); otherwise
+// Prefer a stored absolute url (admin-uploaded → Supabase Storage); otherwise
 // derive from the path via the configured origin (seed images served locally).
 const hydrateGallery = (imgs?: RawImage[]): GalleryImage[] =>
   (imgs ?? []).map((g) => ({
@@ -65,13 +66,16 @@ function hydrate(p: RawProduct): Product {
 const idNum = (id: string) => Number(String(id).replace(/\D/g, "")) || 0;
 const byId = (a: Product, b: Product) => idNum(a.id) - idNum(b.id);
 
-// Raw read straight from Firestore (no ISR cache). Falls back to the seed.
+// Raw read straight from Supabase (no ISR cache). Falls back to the seed.
 async function readProductsFromDb(): Promise<Product[]> {
   try {
-    const snap = await adminDb().collection("products").get();
-    if (!snap.empty) return snap.docs.map((d) => hydrate(d.data() as RawProduct)).sort(byId);
+    const { data, error } = await supabaseAdmin().from("products").select("data");
+    if (error) throw error;
+    if (data && data.length > 0) {
+      return data.map((r) => hydrate(r.data as RawProduct)).sort(byId);
+    }
   } catch (e) {
-    console.error("[products] Firestore read failed, using bundled seed:", (e as Error).message);
+    console.error("[products] Supabase read failed, using bundled seed:", (e as Error).message);
   }
   return (raw as unknown as RawProduct[]).map(hydrate).sort(byId);
 }
@@ -82,7 +86,7 @@ const fetchAll = unstable_cache(readProductsFromDb, ["products:all"], { tags: ["
 export const getAllProducts = cache((): Promise<Product[]> => fetchAll());
 
 /**
- * Uncached read straight from Firestore. Admin PAGES must use getAllProducts()
+ * Uncached read straight from Supabase. Admin PAGES must use getAllProducts()
  * instead — mutations bump the "products" tag with {expire:0} so the cached
  * read is already immediate, and this full-collection read is expensive.
  * Reserved for rare one-shot API actions (Excel export, newsletter send).

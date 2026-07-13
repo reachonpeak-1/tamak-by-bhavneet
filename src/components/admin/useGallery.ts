@@ -5,11 +5,11 @@ import { useAuth } from "@/components/AuthProvider";
 
 /**
  * A rich image record returned by GET /api/admin/gallery.
- * Now powered by Firestore `mediaLibrary` instead of Storage listing —
+ * Powered by the `media_library` table instead of Storage listing —
  * includes all variant URLs, blur placeholder, and original image dimensions.
  */
 export interface GalleryItem {
-  /** Firestore document ID — used as the pagination cursor */
+  /** media_library row ID */
   id: string;
   /** path relative to the products/ root — ready to store on a product gallery */
   path: string;
@@ -41,8 +41,8 @@ export interface GalleryItem {
 
 /**
  * Cursor-paginated reader for GET /api/admin/gallery.
- * Backed by Firestore `mediaLibrary` — sorted newest-first, much faster than
- * listing Storage objects. Pagination uses Firestore doc IDs as cursors.
+ * Backed by the `media_library` table — sorted newest-first. The pagination
+ * token is opaque to this hook; the API echoes the next one via nextPageToken.
  */
 export function useGallery(prefix = "", limit = 60) {
   const { getToken } = useAuth();
@@ -50,8 +50,13 @@ export function useGallery(prefix = "", limit = 60) {
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
-  // Firestore cursor: the Firestore doc ID of the last item on the current page
+  // Opaque pagination token from the previous page's response
   const cursor = useRef<string | null>(null);
+
+  /** Patch one image in place (e.g. after a rotate) without refetching. */
+  const patch = useCallback((id: string, updates: Partial<GalleryItem>) => {
+    setImages((prev) => prev.map((img) => (img.id === id ? { ...img, ...updates } : img)));
+  }, []);
 
   const load = useCallback(
     async (reset = false) => {
@@ -61,21 +66,17 @@ export function useGallery(prefix = "", limit = 60) {
         const token = await getToken();
         if (reset) cursor.current = null;
         const params = new URLSearchParams({ prefix, limit: String(limit) });
-        // Use lastDocId for Firestore cursor pagination (replaces old pageToken)
         if (cursor.current) params.set("lastDocId", cursor.current);
         const res = await fetch(`/api/admin/gallery?${params.toString()}`, {
           headers: { authorization: `Bearer ${token}` },
         });
         const j = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(j.error || "Failed to load images");
-        // nextPageToken is now the last Firestore doc ID
         cursor.current = j.nextPageToken ?? null;
         setHasMore(Boolean(j.nextPageToken));
         setImages((prev) => (reset ? j.images : [...prev, ...j.images]));
       } catch (e) {
-        const errorMsg = (e as Error).message;
-        console.error("[Gallery] Error:", errorMsg, "Token:", token ? "present" : "null");
-        setError(errorMsg);
+        setError((e as Error).message);
       } finally {
         setLoading(false);
       }
@@ -83,6 +84,6 @@ export function useGallery(prefix = "", limit = 60) {
     [getToken, prefix, limit],
   );
 
-  return { images, loading, error, hasMore, load };
+  return { images, loading, error, hasMore, load, patch };
 }
 

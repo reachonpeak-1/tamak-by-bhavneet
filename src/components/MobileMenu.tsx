@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useStore } from "./StoreProvider";
 import { CONTENT_DEFAULTS } from "@/lib/content-defaults";
 import type { Category } from "@/lib/data/categories";
@@ -11,6 +12,16 @@ type Group = { label: string; links: { label: string; href: string }[] };
 export default function MobileMenu({ groups = CONTENT_DEFAULTS.navigation.mobileGroups, categories = [] }: { groups?: Group[]; categories?: Category[] }) {
   const { menuOpen, setMenuOpen } = useStore();
   const [open, setOpen] = useState<number | null>(null);
+  const router = useRouter();
+  const [query, setQuery] = useState("");
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = query.trim();
+    router.push(trimmed ? `/shop?q=${encodeURIComponent(trimmed)}` : "/shop");
+    setMenuOpen(false);
+    setQuery("");
+  };
 
   // Replace the hardcoded "Shop" group with the admin-managed categories.
   const navGroups = categories.length > 0
@@ -49,6 +60,16 @@ export default function MobileMenu({ groups = CONTENT_DEFAULTS.navigation.mobile
         </button>
       </div>
       <div className="m-menu__body">
+        <form className="m-search" role="search" onSubmit={handleSearch}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
+          <input
+            type="search"
+            placeholder="Search sarees, kurtas…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            aria-label="Search products"
+          />
+        </form>
         {navGroups.map((g, i) => (
           <div className={`m-acc${open === i ? " open" : ""}`} key={g.label}>
             <button aria-expanded={open === i} onClick={() => setOpen(open === i ? null : i)}>

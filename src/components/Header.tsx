@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { useStore } from "./StoreProvider";
 import { CONTENT_DEFAULTS } from "@/lib/content-defaults";
 import type { Category } from "@/lib/data/categories";
@@ -30,7 +31,13 @@ const DEVA_MAP: Record<string, string> = {
 
 export default function Header({ nav = CONTENT_DEFAULTS.navigation.primary, categories = [] }: { nav?: NavItem[]; categories?: Category[] }) {
   const [scrolled, setScrolled] = useState(false);
-  const { bagCount, savedCount, setMenuOpen } = useStore();
+  const pathname = usePathname();
+  const router = useRouter();
+  const { bagCount, savedCount, setMenuOpen, heroTone } = useStore();
+
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
@@ -39,14 +46,30 @@ export default function Header({ nav = CONTENT_DEFAULTS.navigation.primary, cate
     return () => removeEventListener("scroll", onScroll);
   }, []);
 
+  useEffect(() => {
+    if (searchOpen) searchInputRef.current?.focus();
+  }, [searchOpen]);
+
+  const submitSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchOpen) return;
+    const trimmed = query.trim();
+    router.push(trimmed ? `/shop?q=${encodeURIComponent(trimmed)}` : "/shop");
+    setSearchOpen(false);
+    setQuery("");
+  };
+
+  const isHome = pathname === "/";
+  const homeToneClass = isHome && heroTone ? ` header--home-${heroTone}` : "";
+
   return (
-    <header className={`header${scrolled ? " scrolled" : ""}`} id="header">
+    <header className={`header${scrolled ? " scrolled" : ""}${isHome ? " header--home" : ""}${homeToneClass}`} id="header">
       <nav className="nav wrap" aria-label="Primary">
-        <Link className="brand" href="/" aria-label="तमक by Bhavneet — home">
-          <Image src="/brand/logo.png" alt="तमक by Bhavneet" width={46} height={46} priority />
+        <Link className="brand" href="/" aria-label="तमक by DHAUNIETT — home">
+          <Image src="/brand/logo.png" alt="तमक by DHAUNIETT" width={46} height={46} priority />
           <span className="wm">
             <b className="deva">तमक</b>
-            <small>By Bhavneet</small>
+            <small>BY DHAUNIETT</small>
           </span>
         </Link>
         <ul className="nav-list">
@@ -176,9 +199,53 @@ export default function Header({ nav = CONTENT_DEFAULTS.navigation.primary, cate
         </ul>
         <span className="nav-spacer" />
         <div className="actions">
-          <Link href="/shop" aria-label="Search">
-            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
-          </Link>
+          <form
+            className={`header-search${searchOpen ? " is-open" : ""}`}
+            role="search"
+            onSubmit={submitSearch}
+          >
+            <button
+              type="submit"
+              aria-label="Search"
+              onClick={(e) => {
+                if (!searchOpen) {
+                  e.preventDefault();
+                  setSearchOpen(true);
+                }
+              }}
+            >
+              <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
+            </button>
+            <input
+              ref={searchInputRef}
+              type="search"
+              className="header-search__input"
+              placeholder="Search sarees, kurtas…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setSearchOpen(false);
+                  setQuery("");
+                }
+              }}
+              aria-label="Search products"
+              tabIndex={searchOpen ? 0 : -1}
+            />
+            {searchOpen && (
+              <button
+                type="button"
+                className="header-search__close"
+                aria-label="Close search"
+                onClick={() => {
+                  setSearchOpen(false);
+                  setQuery("");
+                }}
+              >
+                <svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </button>
+            )}
+          </form>
           <Link className="a-account" href="/account" aria-label="Account">
             <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" /></svg>
           </Link>

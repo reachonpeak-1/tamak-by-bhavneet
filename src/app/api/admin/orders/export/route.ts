@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAdminSession } from "@/lib/firebase/requireAdminSession";
+import { requireAdminSession } from "@/lib/supabase/requireAdminSession";
 import { getOrders } from "@/lib/data/orders";
 
 export const runtime = "nodejs";

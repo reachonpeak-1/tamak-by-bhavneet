@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/firebase/requireAdmin";
-import { adminDb } from "@/lib/firebase/admin";
+import { requireAdmin } from "@/lib/supabase/requireAdmin";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
 
 export const runtime = "nodejs";
@@ -32,16 +32,19 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (Object.keys(update).length === 0) return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
 
   try {
-    const ref = adminDb().collection("orders").doc(id);
-    const snap = await ref.get();
-    if (!snap.exists) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    const before = snap.data();
+    const sb = supabaseAdmin();
+    const { data: row, error: readErr } = await sb.from("orders").select("data").eq("id", id).maybeSingle();
+    if (readErr) throw readErr;
+    if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const before = row.data as Record<string, unknown>;
 
-    const history = Array.isArray(before?.statusHistory) ? [...before!.statusHistory] : [];
+    const history = Array.isArray(before?.statusHistory) ? [...(before.statusHistory as unknown[])] : [];
     if (update.status) {
       history.push({ status: update.status, at: new Date().toISOString(), by: admin.email ?? admin.uid });
     }
-    await ref.set({ ...update, statusHistory: history }, { merge: true });
+    const merged = { ...before, ...update, statusHistory: history };
+    const { error: updateErr } = await sb.from("orders").update({ data: merged }).eq("id", id);
+    if (updateErr) throw updateErr;
     await logAudit({
       actor: admin.email ?? admin.uid,
       action: "order.update",

@@ -1,5 +1,5 @@
 import "server-only";
-import { adminDb } from "@/lib/firebase/admin";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export interface AuditEntry {
   actor?: string;
@@ -12,16 +12,17 @@ export interface AuditEntry {
 // Append-only admin activity trail. Failures never block the mutation.
 export async function logAudit(entry: AuditEntry): Promise<void> {
   try {
-    await adminDb()
-      .collection("auditLog")
-      .add({
+    const { error } = await supabaseAdmin().from("audit_log").insert({
+      data: {
         actor: entry.actor ?? "system",
         action: entry.action,
         target: entry.target ?? null,
         before: entry.before ?? null,
         after: entry.after ?? null,
         at: new Date().toISOString(),
-      });
+      },
+    });
+    if (error) throw error;
   } catch (e) {
     console.error("[audit] failed:", (e as Error).message);
   }

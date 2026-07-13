@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/firebase/requireAdmin";
-import { adminDb } from "@/lib/firebase/admin";
+import { requireAdmin } from "@/lib/supabase/requireAdmin";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { normalizeProduct } from "@/lib/admin/product-input";
 import { logAudit } from "@/lib/audit";
 import { bumpProducts } from "@/lib/revalidate";
@@ -22,14 +22,22 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   }
 
   try {
-    const ref = adminDb().collection("products").doc(id);
-    const snap = await ref.get();
-    if (!snap.exists) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    const before = snap.data();
+    const sb = supabaseAdmin();
+    const { data: row, error: readErr } = await sb
+      .from("products")
+      .select("data")
+      .eq("id", id)
+      .maybeSingle();
+    if (readErr) throw readErr;
+    if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const before = row.data as Record<string, unknown>;
     const data = normalizeProduct(body);
     if (!data.name) return NextResponse.json({ error: "Name required" }, { status: 400 });
 
-    await ref.set({ id, ...data, updatedAt: new Date().toISOString() }, { merge: true });
+    // Same semantics as Firestore's set(..., {merge:true}): top-level merge.
+    const merged = { ...before, id, ...data, updatedAt: new Date().toISOString() };
+    const { error: updateErr } = await sb.from("products").update({ data: merged }).eq("id", id);
+    if (updateErr) throw updateErr;
     await logAudit({ actor: admin.email ?? admin.uid, action: "product.update", target: { collection: "products", id }, before, after: data });
     bumpProducts();
     revalidatePath(`/product/${data.slug}`);
@@ -46,11 +54,17 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
   try {
-    const ref = adminDb().collection("products").doc(id);
-    const snap = await ref.get();
-    if (!snap.exists) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    await ref.delete();
-    await logAudit({ actor: admin.email ?? admin.uid, action: "product.delete", target: { collection: "products", id }, before: snap.data() });
+    const sb = supabaseAdmin();
+    const { data: row, error: readErr } = await sb
+      .from("products")
+      .select("data")
+      .eq("id", id)
+      .maybeSingle();
+    if (readErr) throw readErr;
+    if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const { error: delErr } = await sb.from("products").delete().eq("id", id);
+    if (delErr) throw delErr;
+    await logAudit({ actor: admin.email ?? admin.uid, action: "product.delete", target: { collection: "products", id }, before: row.data });
     bumpProducts();
     return NextResponse.json({ ok: true });
   } catch (e) {

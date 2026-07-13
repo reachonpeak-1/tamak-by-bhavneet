@@ -56,7 +56,7 @@ export default async function ProductPage({ params }: Props) {
 
   return (
     <main className="wrap page">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
       <ProductDetail p={p} />
       <p className="count-note" style={{ marginTop: "2rem" }}>SKU {p.id} · ₹{inr(p.price)}</p>
       {related.length > 0 && (

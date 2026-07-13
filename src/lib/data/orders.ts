@@ -1,5 +1,5 @@
 import "server-only";
-import { adminDb } from "@/lib/firebase/admin";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export interface OrderLine {
   id: string;
@@ -53,17 +53,23 @@ export interface Order {
 
 // Orders are read fresh (not cached) — the admin needs live data.
 export async function getOrders(opts: { limit?: number } = {}): Promise<Order[]> {
-  const snap = await adminDb()
-    .collection("orders")
-    .orderBy("createdAt", "desc")
-    .limit(opts.limit ?? 500)
-    .get();
-  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Order, "id">) }));
+  const { data, error } = await supabaseAdmin()
+    .from("orders")
+    .select("id,data")
+    .order("created_at", { ascending: false })
+    .limit(opts.limit ?? 500);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((r) => ({ ...(r.data as Omit<Order, "id">), id: r.id }));
 }
 
 export async function getOrder(id: string): Promise<Order | null> {
-  const doc = await adminDb().collection("orders").doc(id).get();
-  return doc.exists ? ({ id: doc.id, ...(doc.data() as Omit<Order, "id">) }) : null;
+  const { data, error } = await supabaseAdmin()
+    .from("orders")
+    .select("id,data")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? { ...(data.data as Omit<Order, "id">), id: data.id } : null;
 }
 
 /** Statuses that count as realised revenue (not cancelled/refunded). */

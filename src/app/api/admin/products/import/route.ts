@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { Readable } from "stream";
 import ExcelJS from "exceljs";
-import { requireAdmin } from "@/lib/firebase/requireAdmin";
-import { adminDb } from "@/lib/firebase/admin";
+import { requireAdmin } from "@/lib/supabase/requireAdmin";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { COLUMNS, rowToDraft } from "@/lib/admin/product-sheet";
 import { str } from "@/lib/admin/product-input";
 import { logAudit } from "@/lib/audit";
@@ -95,14 +95,16 @@ export async function POST(req: Request) {
   });
   if (!parsed.length) return NextResponse.json({ error: "No data rows found" }, { status: 400 });
 
-  // ── Existing product ids + highest numeric suffix (single read) ──────────
-  const snap = await adminDb().collection("products").get();
-  const existing = new Set(snap.docs.map((d) => d.id));
-  let maxNum = snap.docs.reduce((m, d) => Math.max(m, Number(d.id.replace(/\D/g, "")) || 0), 0);
+  // ── Existing products + highest numeric suffix (single read) ─────────────
+  const sb = supabaseAdmin();
+  const { data: existingRows, error: readErr } = await sb.from("products").select("id,data");
+  if (readErr) return NextResponse.json({ error: "Import failed while reading products" }, { status: 500 });
+  const existing = new Map((existingRows ?? []).map((r) => [r.id, r.data as Record<string, unknown>]));
+  let maxNum = (existingRows ?? []).reduce((m, r) => Math.max(m, Number(r.id.replace(/\D/g, "")) || 0), 0);
 
   // ── Plan writes ──────────────────────────────────────────────────────────
   const now = new Date().toISOString();
-  const writes: { id: string; data: Record<string, unknown>; merge: boolean }[] = [];
+  const writes: { id: string; data: Record<string, unknown> }[] = [];
   const results: RowResult[] = [];
 
   for (const { row, rec } of parsed) {
@@ -110,8 +112,10 @@ export async function POST(req: Request) {
     const draft = rowToDraft(rec);
 
     if (id) {
-      if (existing.has(id)) {
-        writes.push({ id, data: { ...draft, updatedAt: now }, merge: true });
+      const before = existing.get(id);
+      if (before) {
+        // Same semantics as Firestore's merge:true — top-level merge over the doc.
+        writes.push({ id, data: { ...before, ...draft, updatedAt: now } });
         results.push({ row, id, action: "updated" });
       } else {
         results.push({ row, id, action: "error", message: `id "${id}" not found — nothing updated` });
@@ -121,7 +125,6 @@ export async function POST(req: Request) {
       writes.push({
         id: newId,
         data: { id: newId, ...draft, gallery: [], variants: [], imagePath: null, blurDataURL: "", createdAt: now, updatedAt: now },
-        merge: false,
       });
       results.push({ row, id: newId, action: "created" });
     } else {
@@ -129,15 +132,12 @@ export async function POST(req: Request) {
     }
   }
 
-  // ── Commit in batches (Firestore limit 500/commit) ───────────────────────
+  // ── Commit in chunks ─────────────────────────────────────────────────────
   try {
     for (let i = 0; i < writes.length; i += 400) {
-      const batch = adminDb().batch();
-      for (const w of writes.slice(i, i + 400)) {
-        const ref = adminDb().collection("products").doc(w.id);
-        batch.set(ref, w.data, { merge: w.merge });
-      }
-      await batch.commit();
+      const chunk = writes.slice(i, i + 400).map((w) => ({ id: w.id, data: w.data }));
+      const { error } = await sb.from("products").upsert(chunk, { onConflict: "id" });
+      if (error) throw error;
     }
   } catch (e) {
     console.error("product import error", e);

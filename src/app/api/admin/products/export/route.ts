@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import ExcelJS from "exceljs";
 import sharp from "sharp";
-import { requireAdminSession } from "@/lib/firebase/requireAdminSession";
+import { requireAdminSession } from "@/lib/supabase/requireAdminSession";
 import { getAllProductsFresh } from "@/lib/data/products";
 import { COLUMNS, PREVIEW_COL_INDEX, primaryImageUrl } from "@/lib/admin/product-sheet";
 import type { Product } from "@/lib/types";

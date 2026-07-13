@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
-import { getClientAuth } from "@/lib/firebase/client";
 
 export default function AdminLogin() {
   const { signInEmail, signInGoogle } = useAuth();
@@ -14,14 +13,9 @@ export default function AdminLogin() {
   const [busy, setBusy] = useState(false);
 
   async function establishSession() {
-    const user = getClientAuth().currentUser;
-    if (!user) throw new Error("Sign-in failed");
-    const idToken = await user.getIdToken(true); // force refresh → carries admin claim
-    const res = await fetch("/api/admin/session", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ idToken }),
-    });
+    // Supabase's browser client already wrote the session cookies at sign-in;
+    // this verifies the account is an admin before entering /admin.
+    const res = await fetch("/api/admin/session", { method: "POST" });
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
       throw new Error(j.error || "This account is not an admin");

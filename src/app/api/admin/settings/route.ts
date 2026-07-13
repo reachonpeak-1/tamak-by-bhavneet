@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/firebase/requireAdmin";
-import { adminDb } from "@/lib/firebase/admin";
+import { requireAdmin } from "@/lib/supabase/requireAdmin";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
 import { bumpSettings } from "@/lib/revalidate";
 import { SETTINGS_DEFAULTS, type Settings } from "@/lib/data/settings";
@@ -33,9 +33,13 @@ export async function PUT(req: Request) {
   }
   try {
     const data = normalize(body);
-    const ref = adminDb().collection("settings").doc("store");
-    const before = (await ref.get()).data() ?? null;
-    await ref.set({ ...data, updatedAt: new Date().toISOString() });
+    const sb = supabaseAdmin();
+    const { data: prev } = await sb.from("settings").select("data").eq("id", "store").maybeSingle();
+    const before = prev?.data ?? null;
+    const { error } = await sb
+      .from("settings")
+      .upsert({ id: "store", data: { ...data, updatedAt: new Date().toISOString() } });
+    if (error) throw error;
     await logAudit({ actor: admin.email ?? admin.uid, action: "settings.save", target: { collection: "settings", id: "store" }, before, after: data });
     bumpSettings();
     revalidatePath("/", "layout");

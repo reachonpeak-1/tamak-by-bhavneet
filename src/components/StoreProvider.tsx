@@ -18,6 +18,8 @@ interface StoreCtx {
   toastMsg: string | null;
   menuOpen: boolean;
   setMenuOpen: (v: boolean) => void;
+  heroTone: "light" | "dark" | null;
+  setHeroTone: (tone: "light" | "dark" | null) => void;
 }
 
 const Ctx = createContext<StoreCtx | null>(null);
@@ -29,6 +31,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [heroTone, setHeroTone] = useState<"light" | "dark" | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // hydrate from localStorage (client-only; cannot run during SSR)
@@ -110,8 +113,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       toastMsg,
       menuOpen,
       setMenuOpen,
+      heroTone,
+      setHeroTone,
     }),
-    [cart, wishlist, addToBag, removeFromBag, setQty, clearCart, toggleWish, isWished, toast, toastMsg, menuOpen]
+    [cart, wishlist, addToBag, removeFromBag, setQty, clearCart, toggleWish, isWished, toast, toastMsg, menuOpen, heroTone, setHeroTone]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

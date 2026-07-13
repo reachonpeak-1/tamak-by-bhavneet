@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/firebase/requireAdmin";
-import { adminDb } from "@/lib/firebase/admin";
+import { requireAdmin } from "@/lib/supabase/requireAdmin";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { normalizeProduct, slugify, nextProductId } from "@/lib/admin/product-input";
 import { logAudit } from "@/lib/audit";
 import { bumpProducts } from "@/lib/revalidate";
@@ -25,9 +25,14 @@ export async function POST(req: Request) {
   try {
     let data: Record<string, unknown>;
     if (body.duplicateOf) {
-      const src = await adminDb().collection("products").doc(String(body.duplicateOf)).get();
-      if (!src.exists) return NextResponse.json({ error: "Source not found" }, { status: 404 });
-      const s = src.data()!;
+      const { data: src, error } = await supabaseAdmin()
+        .from("products")
+        .select("data")
+        .eq("id", String(body.duplicateOf))
+        .maybeSingle();
+      if (error) throw error;
+      if (!src) return NextResponse.json({ error: "Source not found" }, { status: 404 });
+      const s = src.data as Record<string, unknown>;
       data = normalizeProduct({ ...s, name: `${s.name} (copy)`, slug: `${slugify(String(s.name))}-${id.toLowerCase()}` });
     } else {
       data = normalizeProduct(body);
@@ -35,7 +40,10 @@ export async function POST(req: Request) {
       if (!data.slug) (data as { slug: string }).slug = id.toLowerCase();
     }
 
-    await adminDb().collection("products").doc(id).set({ id, ...data, createdAt: now, updatedAt: now });
+    const { error: insertErr } = await supabaseAdmin()
+      .from("products")
+      .insert({ id, data: { id, ...data, createdAt: now, updatedAt: now } });
+    if (insertErr) throw insertErr;
     await logAudit({ actor: admin.email ?? admin.uid, action: "product.create", target: { collection: "products", id }, after: data });
     bumpProducts();
     return NextResponse.json({ ok: true, id });

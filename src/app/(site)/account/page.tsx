@@ -38,7 +38,7 @@ export default function AccountPage() {
       <main className="wrap page">
         <div className="empty">
           <h2>Accounts coming online soon</h2>
-          <p>Login is enabled once Firebase is connected. You can still shop and check out as a guest.</p>
+          <p>Login is enabled once Supabase is connected. You can still shop and check out as a guest.</p>
           <Link className="btn btn--solid" href="/shop">Continue shopping</Link>
         </div>
       </main>
@@ -147,7 +147,7 @@ export default function AccountPage() {
       if (mode === "in") await signInEmail(email, pw);
       else await signUpEmail(email, pw);
     } catch (e) {
-      setErr((e as Error).message.replace("Firebase:", "").trim());
+      setErr((e as Error).message.trim());
     }
   };
 

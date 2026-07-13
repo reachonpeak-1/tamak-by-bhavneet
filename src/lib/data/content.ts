@@ -1,7 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
-import { adminDb } from "@/lib/firebase/admin";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { CONTENT_DEFAULTS, type ContentSection } from "@/lib/content-defaults";
 
 // Merges a stored doc over the defaults. Top-level keys from the stored doc win,
@@ -21,14 +21,19 @@ function mergeSection<T>(def: T, stored: Record<string, unknown>): T {
   return out as T;
 }
 
-// Reads content/{section} from Firestore (cached, tag "content"+"content:<s>").
+// Reads the content row for a section (cached, tag "content"+"content:<s>").
 // Falls back to the bundled defaults so the storefront never breaks pre-seed.
 function fetcher(section: ContentSection) {
   return unstable_cache(
     async () => {
       try {
-        const doc = await adminDb().collection("content").doc(section).get();
-        if (doc.exists) return mergeSection(CONTENT_DEFAULTS[section], doc.data() as Record<string, unknown>);
+        const { data, error } = await supabaseAdmin()
+          .from("content")
+          .select("data")
+          .eq("id", section)
+          .maybeSingle();
+        if (error) throw error;
+        if (data) return mergeSection(CONTENT_DEFAULTS[section], data.data as Record<string, unknown>);
       } catch (e) {
         console.error(`[content:${section}] read failed, using defaults:`, (e as Error).message);
       }

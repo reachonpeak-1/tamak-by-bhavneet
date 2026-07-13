@@ -1,7 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
-import { adminDb } from "@/lib/firebase/admin";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export interface Settings {
   storeName: string;
@@ -31,8 +31,13 @@ export const SETTINGS_DEFAULTS: Settings = {
 const fetcher = unstable_cache(
   async (): Promise<Settings> => {
     try {
-      const doc = await adminDb().collection("settings").doc("store").get();
-      if (doc.exists) return { ...SETTINGS_DEFAULTS, ...(doc.data() as Partial<Settings>) };
+      const { data, error } = await supabaseAdmin()
+        .from("settings")
+        .select("data")
+        .eq("id", "store")
+        .maybeSingle();
+      if (error) throw error;
+      if (data) return { ...SETTINGS_DEFAULTS, ...(data.data as Partial<Settings>) };
     } catch (e) {
       console.error("[settings] read failed, using defaults:", (e as Error).message);
     }

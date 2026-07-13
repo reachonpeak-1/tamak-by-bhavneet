@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/firebase/requireAdmin";
-import { adminDb } from "@/lib/firebase/admin";
+import { requireAdmin } from "@/lib/supabase/requireAdmin";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
 import { bumpCategories } from "@/lib/revalidate";
 import { slugify } from "@/lib/admin/product-input";
@@ -37,8 +37,9 @@ function normalize(b: Record<string, unknown>): Category | null {
 export async function GET(req: Request) {
   const admin = await requireAdmin(req);
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const snap = await adminDb().collection("categories").get();
-  return NextResponse.json({ categories: snap.docs.map((d) => d.data()) });
+  const { data, error } = await supabaseAdmin().from("categories").select("data");
+  if (error) return NextResponse.json({ error: "Read failed" }, { status: 500 });
+  return NextResponse.json({ categories: (data ?? []).map((r) => r.data) });
 }
 
 export async function POST(req: Request) {
@@ -53,12 +54,16 @@ export async function POST(req: Request) {
   const c = normalize(body);
   if (!c) return NextResponse.json({ error: "Name and photo are required" }, { status: 400 });
   try {
-    const col = adminDb().collection("categories");
-    const ref = col.doc(c.id);
-    if ((await ref.get()).exists) return NextResponse.json({ error: "A category with that name already exists" }, { status: 409 });
+    const sb = supabaseAdmin();
+    const { data: existing } = await sb.from("categories").select("id").eq("id", c.id).maybeSingle();
+    if (existing) return NextResponse.json({ error: "A category with that name already exists" }, { status: 409 });
     // append to the end if no explicit order was provided
-    if (!body.order) c.order = (await col.get()).size;
-    await ref.set(c);
+    if (!body.order) {
+      const { count } = await sb.from("categories").select("id", { count: "exact", head: true });
+      c.order = count ?? 0;
+    }
+    const { error: insertErr } = await sb.from("categories").insert({ id: c.id, data: c });
+    if (insertErr) throw insertErr;
     await logAudit({ actor: admin.email ?? admin.uid, action: "category.create", target: { collection: "categories", id: c.id }, after: c });
     bumpCategories();
     revalidatePath("/");

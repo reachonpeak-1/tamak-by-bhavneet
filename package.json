@@ -10,16 +10,19 @@
     "seed:categories": "node scripts/seed-categories.mjs"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.12.0",
+    "@supabase/supabase-js": "^2.109.0",
+    "dotenv": "^17.4.2",
     "exceljs": "^4.4.0",
-    "firebase": "^12.14.0",
-    "firebase-admin": "^13.10.0",
     "next": "16.2.7",
     "nodemailer": "^9.0.0",
     "razorpay": "^2.9.6",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "react-loading-skeleton": "^3.5.0",
     "server-only": "^0.0.1",
-    "sharp": "^0.35.3"
+    "sharp": "^0.35.3",
+    "ws": "^8.21.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -28,6 +31,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/sharp": "^0.31.1",
+    "@types/ws": "^8.18.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.7",
     "tailwindcss": "^4",

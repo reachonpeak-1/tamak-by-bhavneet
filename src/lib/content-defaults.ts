@@ -1,4 +1,4 @@
-// Default homepage / site content. Seeded into Firestore `content/{section}` by
+// Default homepage / site content. Stored in the `content` table (one row per section) by
 // scripts/seed-content.mjs, and used as a fallback so the storefront renders
 // even before seeding. Everything here is plain serializable data — SVG icons
 // are referenced by key into src/lib/icon-registry.tsx, never stored.

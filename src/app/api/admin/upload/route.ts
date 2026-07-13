@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
 import sharp from "sharp";
-import { requireAdmin } from "@/lib/firebase/requireAdmin";
-import { adminStorage, adminDb } from "@/lib/firebase/admin";
-import { FieldValue } from "firebase-admin/firestore";
+import { requireAdmin } from "@/lib/supabase/requireAdmin";
+import { supabaseAdmin, STORAGE_BUCKET, publicStorageUrl } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
-const BUCKET = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
 const safe = (s: string) => s.replace(/[^a-zA-Z0-9._-]/g, "_");
 
 // Optimisation targets — width (px), quality, suffix
@@ -16,32 +14,29 @@ const VARIANTS = [
   { width: 150,  quality: 75, suffix: "thumb" },
 ] as const;
 
-const CACHE_META = { cacheControl: "public, max-age=31536000, immutable" };
-
 /**
- * Upload a buffer to Firebase Storage and return its public URL.
+ * Upload a buffer to Supabase Storage (public `media` bucket) and return its
+ * public URL.
  */
 async function uploadToStorage(
   key: string,
   buf: Buffer,
   contentType: string,
 ) {
-  await adminStorage()
-    .bucket()
-    .file(key)
-    .save(buf, { contentType, metadata: CACHE_META });
-  return `https://storage.googleapis.com/${BUCKET}/${key}`;
+  const { error } = await supabaseAdmin()
+    .storage.from(STORAGE_BUCKET)
+    .upload(key, buf, { contentType, cacheControl: "31536000", upsert: true });
+  if (error) throw new Error(error.message);
+  return publicStorageUrl(key);
 }
 
 // POST multipart { file, prefix } → uploads to Storage at <root>/<prefix>/<name>
 // and returns { path, url, thumbUrl, mediumUrl, fullUrl, blurDataURL }.
 // `path` is relative to the "products" root for product galleries (so it matches
 // existing data) or "content/<section>".
-// Bucket must be public-read (one-time IAM allUsers:objectViewer grant).
 export async function POST(req: Request) {
   const admin = await requireAdmin(req);
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!BUCKET) return NextResponse.json({ error: "Storage bucket not configured" }, { status: 503 });
 
   let form: FormData;
   try {
@@ -50,7 +45,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Expected multipart form-data" }, { status: 400 });
   }
   const file = form.get("file");
-  const prefix = String(form.get("prefix") ?? "").replace(/^\/+|\/+$/g, "");
+  // Sanitize each path segment: strip unsafe chars and drop any "" / "." / ".."
+  // so a crafted prefix can't traverse to other folders in the bucket.
+  const rawPrefix = String(form.get("prefix") ?? "");
+  const prefix = rawPrefix
+    .split("/")
+    .map((seg) => safe(seg))
+    .filter((seg) => seg && seg !== "." && seg !== "..")
+    .join("/");
   if (!(file instanceof File)) return NextResponse.json({ error: "Missing file" }, { status: 400 });
   if (!file.type.startsWith("image/")) return NextResponse.json({ error: "Images only" }, { status: 400 });
   if (file.size > 8 * 1024 * 1024) return NextResponse.json({ error: "Max 8MB" }, { status: 400 });
@@ -61,25 +63,31 @@ export async function POST(req: Request) {
   // product galleries live under products/<id>/...; content under content/<section>/...
   const isContent = prefix.startsWith("content/");
   const dirKey = isContent ? prefix : `products/${prefix}`;
-  // relPath is what gets stored in the Firestore doc (without the "products/" prefix
+  // relPath is what gets stored in the product doc (without the "products/" prefix
   // for product images, so it can be re-resolved at read time)
   const relPath = isContent ? `${prefix}/${baseName}.webp` : `${prefix}/${baseName}.webp`;
 
   try {
     const rawBuffer = Buffer.from(await file.arrayBuffer());
 
-    // ── 1. Read original image dimensions (before any resizing) ───────────
-    const imgMeta = await sharp(rawBuffer).metadata();
-    const originalWidth  = imgMeta.width  ?? null;
-    const originalHeight = imgMeta.height ?? null;
+    // ── 1. Decode + validate the image (bounded to guard against decompression
+    //       bombs; verify it is actually a raster image, not a spoofed MIME) ──
+    const imgMeta = await sharp(rawBuffer, { limitInputPixels: 40_000_000, failOn: "error" }).metadata();
+    if (!imgMeta.format || !imgMeta.width || !imgMeta.height) {
+      return NextResponse.json({ error: "Unsupported or corrupt image" }, { status: 400 });
+    }
+    const originalWidth  = imgMeta.width;
+    const originalHeight = imgMeta.height;
+    // Trust sharp's detected format, not the client-supplied Content-Type.
+    const detectedType = `image/${imgMeta.format}`;
 
     // ── 2. Upload original as backup ──────────────────────────────────────
-    const origExt = (file.name.split(".").pop() || "jpg").toLowerCase();
+    const origExt = imgMeta.format;
     const originalStorageKey = `${dirKey}/${baseName}-original.${origExt}`;
-    await uploadToStorage(originalStorageKey, rawBuffer, file.type);
+    await uploadToStorage(originalStorageKey, rawBuffer, detectedType);
 
     // ── 3. Generate optimised WebP variants via Sharp ─────────────────────
-    const pipeline = sharp(rawBuffer).rotate(); // auto-rotate from EXIF
+    const pipeline = sharp(rawBuffer, { limitInputPixels: 40_000_000, failOn: "error" }).rotate();
     const urls: Record<string, string> = {};
 
     for (const v of VARIANTS) {
@@ -100,29 +108,31 @@ export async function POST(req: Request) {
       .toBuffer();
     const blurDataURL = `data:image/webp;base64,${blurBuf.toString("base64")}`;
 
-    // ── 5. Auto-save full metadata to Firestore mediaLibrary ──────────────
+    // ── 5. Auto-save full metadata to media_library ────────────────────────
     // Runs on every upload — no manual product save required.
-    // Gallery Picker reads from this collection instead of listing Storage
-    // (Firestore queries are ~10x faster than Storage getFiles()).
-    await adminDb().collection("mediaLibrary").add({
-      // paths & variant URLs
-      path:              relPath,
-      prefix,
-      originalStorageKey,
-      thumbUrl:          urls.thumb,
-      mediumUrl:         urls.medium,
-      fullUrl:           urls.full,
-      blurDataURL,
-      // image intrinsics
-      originalWidth,
-      originalHeight,
-      fileSizeBytes:     file.size,
-      contentType:       file.type,
-      originalFileName:  file.name,
-      // audit
-      uploadedAt:        FieldValue.serverTimestamp(),
-      uploadedBy:        admin.uid,
+    // Gallery Picker reads from this table instead of listing Storage objects.
+    const { error: metaErr } = await supabaseAdmin().from("media_library").insert({
+      data: {
+        // paths & variant URLs
+        path:              relPath,
+        prefix,
+        originalStorageKey,
+        thumbUrl:          urls.thumb,
+        mediumUrl:         urls.medium,
+        fullUrl:           urls.full,
+        blurDataURL,
+        // image intrinsics
+        originalWidth,
+        originalHeight,
+        fileSizeBytes:     file.size,
+        contentType:       detectedType,
+        originalFileName:  file.name,
+        // audit
+        uploadedAt:        new Date().toISOString(),
+        uploadedBy:        admin.uid,
+      },
     });
+    if (metaErr) console.error("media_library insert failed:", metaErr.message);
 
     return NextResponse.json({
       path: relPath,

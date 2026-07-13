@@ -27,7 +27,7 @@ export default function CategoryRail({ data = CONTENT_DEFAULTS.categoryRail, cat
                 alt={c.name}
                 fill
                 sizes="(max-width: 560px) 100vw, (max-width: 900px) 50vw, 640px"
-                quality={95}
+
                 priority={i < 2}
                 style={{ objectPosition: pos }}
               />

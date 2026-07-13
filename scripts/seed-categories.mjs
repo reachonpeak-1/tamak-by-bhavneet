@@ -1,4 +1,4 @@
-// Seed Firestore `categories` with the 12 Tamak categories + their subcategories.
+// Seed the Supabase `categories` table with the 12 Tamak categories + their subcategories.
 //
 // REPLACES the collection: deletes every existing category doc, then writes the
 // 12 below. Photos are NOT seeded (image: "") — the admin category form requires
@@ -9,10 +9,13 @@
 // `subs` entry equals a product's `subcategory`. Names/subs are verbatim from
 // TAMAK CATEGORIES.xlsx (incl. source typos) — edit later in the admin if needed.
 //
-// Env: FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL, FIREBASE_ADMIN_PRIVATE_KEY
+// Env (.env.local): NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SECRET_KEY
 // Run: node scripts/seed-categories.mjs   (or: npm run seed:categories)
-import { cert, initializeApp } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
+import { config } from "dotenv";
+import { createClient } from "@supabase/supabase-js";
+import ws from "ws";
+
+config({ path: ".env.local" });
 
 const slugify = (s) =>
   s.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
@@ -35,35 +38,28 @@ const CATEGORIES = [
 
 const PANELS = ["p-maroon", "p-teal", "p-mustard", "p-plum", "p-indigo", "p-terra"];
 
-const { FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL, FIREBASE_ADMIN_PRIVATE_KEY } = process.env;
-if (!FIREBASE_ADMIN_PROJECT_ID || !FIREBASE_ADMIN_CLIENT_EMAIL || !FIREBASE_ADMIN_PRIVATE_KEY) {
-  console.error("Missing FIREBASE_ADMIN_* env vars.");
+const { NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SECRET_KEY } = process.env;
+if (!NEXT_PUBLIC_SUPABASE_URL || !SUPABASE_SECRET_KEY) {
+  console.error("Missing NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SECRET_KEY env vars.");
   process.exit(1);
 }
 
-initializeApp({
-  credential: cert({
-    projectId: FIREBASE_ADMIN_PROJECT_ID,
-    clientEmail: FIREBASE_ADMIN_CLIENT_EMAIL,
-    privateKey: FIREBASE_ADMIN_PRIVATE_KEY.replace(/\\n/g, "\n"),
-  }),
+const supabase = createClient(NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SECRET_KEY, {
+  auth: { persistSession: false, autoRefreshToken: false },
+  realtime: { transport: ws },
 });
-const db = getFirestore();
-const col = db.collection("categories");
 const now = new Date().toISOString();
 
 // 1. Clear existing categories.
-const existing = await col.get();
-if (!existing.empty) {
-  const delBatch = db.batch();
-  existing.docs.forEach((d) => delBatch.delete(d.ref));
-  await delBatch.commit();
-  console.log(`Deleted ${existing.size} existing categories.`);
-}
+const { error: delErr, count } = await supabase
+  .from("categories")
+  .delete({ count: "exact" })
+  .neq("id", "");
+if (delErr) { console.error(delErr.message); process.exit(1); }
+if (count) console.log(`Deleted ${count} existing categories.`);
 
 // 2. Write the 12.
-const batch = db.batch();
-CATEGORIES.forEach(([name, subs], i) => {
+const rows = CATEGORIES.map(([name, subs], i) => {
   const doc = {
     id: slugify(name),
     name,
@@ -78,7 +74,8 @@ CATEGORIES.forEach(([name, subs], i) => {
     order: i,
     createdAt: now,
   };
-  batch.set(col.doc(doc.id), doc);
+  return { id: doc.id, data: doc };
 });
-await batch.commit();
+const { error: insErr } = await supabase.from("categories").insert(rows);
+if (insErr) { console.error(insErr.message); process.exit(1); }
 console.log(`Seeded ${CATEGORIES.length} categories. Remember to upload a photo for each in Admin → Categories.`);

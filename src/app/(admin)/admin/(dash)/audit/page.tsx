@@ -1,4 +1,4 @@
-import { adminDb } from "@/lib/firebase/admin";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -7,8 +7,12 @@ interface Entry { id: string; at: string; actor: string; action: string; target?
 export default async function AuditPage() {
   let entries: Entry[] = [];
   try {
-    const snap = await adminDb().collection("auditLog").orderBy("at", "desc").limit(200).get();
-    entries = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Entry, "id">) }));
+    const { data } = await supabaseAdmin()
+      .from("audit_log")
+      .select("id,data")
+      .order("at", { ascending: false, nullsFirst: false })
+      .limit(200);
+    entries = (data ?? []).map((r) => ({ ...(r.data as Omit<Entry, "id">), id: String(r.id) }));
   } catch {
     /* may not exist yet */
   }

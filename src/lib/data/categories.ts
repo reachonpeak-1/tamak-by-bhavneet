@@ -1,4 +1,4 @@
-// Server-only category data layer. Firestore `categories` is the SOURCE OF TRUTH
+// Server-only category data layer. The Supabase `categories` table is the SOURCE OF TRUTH
 // for the homepage "Shop by category" rail and the product editor's category
 // options. Each category's `name` is the canonical value stored on a product's
 // `category` field, so creating a category keeps the rail, the product dropdown
@@ -10,7 +10,7 @@
 import "server-only";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
-import { adminDb } from "@/lib/firebase/admin";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export interface Category {
   id: string; // slug, doc id
@@ -38,15 +38,16 @@ const byOrder = (a: Category, b: Category) =>
 
 async function readCategoriesFromDb(): Promise<Category[]> {
   try {
-    const snap = await adminDb().collection("categories").get();
-    return snap.docs
-      .map((d) => {
-        const c = d.data() as Category;
-        return { ...c, subs: Array.isArray(c.subs) ? c.subs : [] };
+    const { data, error } = await supabaseAdmin().from("categories").select("id,data");
+    if (error) throw error;
+    return (data ?? [])
+      .map((r) => {
+        const c = r.data as Category;
+        return { ...c, id: r.id, subs: Array.isArray(c.subs) ? c.subs : [] };
       })
       .sort(byOrder);
   } catch (e) {
-    console.error("[categories] Firestore read failed:", (e as Error).message);
+    console.error("[categories] Supabase read failed:", (e as Error).message);
     return [];
   }
 }
@@ -59,5 +60,5 @@ const fetchAll = unstable_cache(readCategoriesFromDb, ["categories:all"], {
 /** Storefront read — cached (ISR), invalidated on admin save via bumpCategories(). */
 export const listCategories = cache((): Promise<Category[]> => fetchAll());
 
-/** Admin read — always fresh from Firestore so edits reflect immediately. */
+/** Admin read — always fresh from Supabase so edits reflect immediately. */
 export const listCategoriesFresh = cache((): Promise<Category[]> => readCategoriesFromDb());

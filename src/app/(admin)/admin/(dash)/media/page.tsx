@@ -9,7 +9,7 @@ export default function MediaPage() {
         <div>
           <span className="adm-eyebrow">Catalog</span>
           <h1 className="adm-h">Media library</h1>
-          <p className="adm-sub">All product images in Firebase Storage</p>
+          <p className="adm-sub">All product images in Supabase Storage</p>
         </div>
       </div>
       <MediaLibrary />

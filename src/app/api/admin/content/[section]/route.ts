@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/firebase/requireAdmin";
-import { adminDb } from "@/lib/firebase/admin";
+import { requireAdmin } from "@/lib/supabase/requireAdmin";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
 import { bumpContent } from "@/lib/revalidate";
 import { CONTENT_DEFAULTS, type ContentSection } from "@/lib/content-defaults";
@@ -16,8 +16,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ section:
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { section } = await params;
   if (!isSection(section)) return NextResponse.json({ error: "Unknown section" }, { status: 404 });
-  const doc = await adminDb().collection("content").doc(section).get();
-  return NextResponse.json({ data: { ...CONTENT_DEFAULTS[section], ...(doc.exists ? doc.data() : {}) } });
+  const { data: row } = await supabaseAdmin().from("content").select("data").eq("id", section).maybeSingle();
+  return NextResponse.json({ data: { ...CONTENT_DEFAULTS[section], ...((row?.data as object) ?? {}) } });
 }
 
 export async function PUT(req: Request, { params }: { params: Promise<{ section: string }> }) {
@@ -34,9 +34,13 @@ export async function PUT(req: Request, { params }: { params: Promise<{ section:
   }
 
   try {
-    const ref = adminDb().collection("content").doc(section);
-    const before = (await ref.get()).data() ?? null;
-    await ref.set({ ...body, updatedAt: new Date().toISOString() });
+    const sb = supabaseAdmin();
+    const { data: prev } = await sb.from("content").select("data").eq("id", section).maybeSingle();
+    const before = prev?.data ?? null;
+    const { error } = await sb
+      .from("content")
+      .upsert({ id: section, data: { ...body, updatedAt: new Date().toISOString() } });
+    if (error) throw error;
     await logAudit({ actor: admin.email ?? admin.uid, action: "content.save", target: { collection: "content", id: section }, before, after: body });
     bumpContent(section);
     revalidatePath("/", "layout"); // footer/nav/announcements live in the layout

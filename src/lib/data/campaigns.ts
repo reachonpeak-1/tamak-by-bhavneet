@@ -1,7 +1,7 @@
 // Server-only history of sent broadcast emails. Written by the admin send route,
 // read by the newsletter admin page. Read fresh (admin needs live data).
 import "server-only";
-import { adminDb } from "@/lib/firebase/admin";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { TemplateId } from "@/lib/email/template-config";
 
 export interface Campaign {
@@ -18,9 +18,14 @@ export interface Campaign {
 
 export async function listCampaigns(limit = 50): Promise<Campaign[]> {
   try {
-    const snap = await adminDb().collection("campaigns").orderBy("createdAt", "desc").limit(limit).get();
-    return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Campaign, "id">) }));
+    const { data, error } = await supabaseAdmin()
+      .from("campaigns")
+      .select("id,data")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    return (data ?? []).map((r) => ({ ...(r.data as Omit<Campaign, "id">), id: r.id }));
   } catch {
-    return []; // collection may not exist yet
+    return []; // table may be empty/unreachable
   }
 }

@@ -3,7 +3,7 @@ export type Panel = "p-maroon" | "p-teal" | "p-mustard" | "p-plum" | "p-indigo" 
 export type Tone = "m-gold" | "m-cream";
 
 export interface GalleryImage {
-  /** Firebase Storage object path, e.g. "products/PROD_1/1.jpg" */
+  /** Storage object path, e.g. "products/PROD_1/1.jpg" */
   path: string;
   blurDataURL: string;
   /** full delivery URL, computed at runtime from the storage bucket */

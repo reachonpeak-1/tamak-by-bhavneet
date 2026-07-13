@@ -19,7 +19,7 @@ export default function Privacy() {
       <ul>
         <li>Contact &amp; delivery details (name, email, phone, address) to fulfil orders.</li>
         <li>Order and payment status (payments are processed securely by Razorpay; we do not store card details).</li>
-        <li>Account details if you choose to sign in (via Firebase Authentication).</li>
+        <li>Account details if you choose to sign in (via Supabase Authentication).</li>
       </ul>
       <h3>How we use it</h3>
       <p>To process orders, provide support, send order updates, and — only with your consent — occasional offers.</p>

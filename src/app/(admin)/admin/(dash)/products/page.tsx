@@ -11,7 +11,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
   const { q, page } = await searchParams;
   // Cached read: every product mutation bumps the "products" tag with
   // {expire:0} (src/lib/revalidate.ts), so this is always up to date without
-  // re-reading the whole Firestore collection per request.
+  // re-reading the whole products table per request.
   let products = await getAllProducts();
   if (q) {
     const t = q.toLowerCase();

@@ -4,8 +4,8 @@
 //          _source/optimized/manifest.json  (image keys + blur placeholders)
 // Output:  src/data/products.json  (ALL 85 products, fully populated)
 //
-// Image fields store the Firebase Storage object PATH (products/PROD_x/n.jpg).
-// The app builds the full URL from NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET at runtime;
+// Image fields store the Storage object PATH (products/PROD_x/n.jpg).
+// The app builds the full URL from the storage origin at runtime;
 // until images are uploaded the cards fall back to the woven-motif placeholder.
 //
 // Prices/ratings/stock are reasonable generated defaults (no price in source) —

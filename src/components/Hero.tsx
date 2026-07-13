@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useStore } from "./StoreProvider";
 
 const DEFAULT_SLIDES = [
   {
@@ -56,6 +57,7 @@ export default function Hero({ slides = DEFAULT_SLIDES }: { slides?: Slide[] }) 
   const [idx, setIdx] = useState(0);
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const { setHeroTone } = useStore();
   const trackRef = useRef<HTMLDivElement>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const touch = useRef<{ x0: number | null; dx: number }>({ x0: null, dx: 0 });
@@ -111,6 +113,12 @@ export default function Hero({ slides = DEFAULT_SLIDES }: { slides?: Slide[] }) 
   };
 
   const dark = (SLIDES[idx].tone as string) === "dark";
+
+  useEffect(() => {
+    setHeroTone(dark ? "dark" : "light");
+    // On unmount, we can optionally clear it or leave it
+    return () => setHeroTone(null);
+  }, [dark, setHeroTone]);
 
   return (
     <section

@@ -1,20 +1,18 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/firebase/requireAdmin";
-import { adminDb, adminStorage } from "@/lib/firebase/admin";
+import { requireAdmin } from "@/lib/supabase/requireAdmin";
+import { supabaseAdmin, STORAGE_BUCKET } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
-
-const BUCKET = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
 
 /**
  * GET ?prefix=&limit=&lastDocId=
  *
- * Lists images from the Firestore `mediaLibrary` collection — sorted by most
- * recently uploaded, cursor-paginated via `lastDocId`. This is ~10x faster
- * than listing Firebase Storage objects and returns full variant URLs,
- * blurDataURL, and image dimensions for each image.
+ * Lists images from the `media_library` table — sorted by most recently
+ * uploaded, offset-paginated. `lastDocId` is an opaque token to the client
+ * (useGallery just echoes it back); here it is the stringified next offset.
+ * Returns full variant URLs, blurDataURL, and image dimensions per image.
  *
- * Falls back gracefully: if `mediaLibrary` is empty (first deploy before any
+ * Falls back gracefully: if `media_library` is empty (first deploy before any
  * uploads), returns an empty array so the UI doesn't break.
  */
 export async function GET(req: Request) {
@@ -22,36 +20,27 @@ export async function GET(req: Request) {
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
-  const prefix      = (searchParams.get("prefix") ?? "").replace(/^\/+/, "");
-  const lastDocId   = searchParams.get("lastDocId") ?? null;
-  const limit       = Math.min(120, Math.max(1, Number(searchParams.get("limit")) || 60));
+  const prefix = (searchParams.get("prefix") ?? "").replace(/^\/+/, "");
+  const offset = Math.max(0, Number(searchParams.get("lastDocId")) || 0);
+  const limit  = Math.min(120, Math.max(1, Number(searchParams.get("limit")) || 60));
 
   try {
-    const db = adminDb();
-    let query = db
-      .collection("mediaLibrary")
-      .orderBy("uploadedAt", "desc")
-      .limit(limit);
+    let query = supabaseAdmin()
+      .from("media_library")
+      .select("id,data")
+      .order("uploaded_at", { ascending: false, nullsFirst: false })
+      .range(offset, offset + limit - 1);
 
     // Filter by prefix if provided (e.g. a specific product folder)
-    if (prefix) {
-      query = query.where("prefix", "==", prefix) as typeof query;
-    }
+    if (prefix) query = query.eq("prefix", prefix);
 
-    // Cursor pagination: jump past the last doc from the previous page
-    if (lastDocId) {
-      const lastSnap = await db.collection("mediaLibrary").doc(lastDocId).get();
-      if (lastSnap.exists) {
-        query = query.startAfter(lastSnap) as typeof query;
-      }
-    }
+    const { data: rows, error } = await query;
+    if (error) throw error;
 
-    const snap = await query.get();
-
-    const images = snap.docs.map((doc) => {
-      const d = doc.data();
+    const images = (rows ?? []).map((r) => {
+      const d = r.data as Record<string, unknown>;
       return {
-        id:             doc.id,
+        id:             r.id,
         path:           d.path        ?? "",
         prefix:         d.prefix      ?? "",
         name:           d.path        ?? "",   // kept for GItem compatibility
@@ -69,12 +58,11 @@ export async function GET(req: Request) {
         uploadedBy:     d.uploadedBy  ?? "",
         // legacy compat — size/updated for components that still read them
         size:           d.fileSizeBytes ?? 0,
-        updated:        d.uploadedAt?.toDate?.()?.toISOString?.() ?? null,
+        updated:        d.uploadedAt ?? null,
       };
     });
 
-    const lastDoc = snap.docs[snap.docs.length - 1];
-    const nextPageToken = snap.docs.length === limit ? (lastDoc?.id ?? null) : null;
+    const nextPageToken = (rows?.length ?? 0) === limit ? String(offset + limit) : null;
 
     return NextResponse.json({ images, nextPageToken });
   } catch (e) {
@@ -84,15 +72,14 @@ export async function GET(req: Request) {
 }
 
 /**
- * DELETE ?id=<mediaLibrary doc id>&storageKey=<optional storage path>
+ * DELETE ?id=<media_library row id>&storageKey=<optional storage path>
  *
- * Removes the Firestore metadata doc from `mediaLibrary`. Optionally also
- * deletes the Storage file if `storageKey` is provided.
+ * Removes the metadata row from `media_library`. Optionally also deletes the
+ * Storage object if `storageKey` is provided.
  */
 export async function DELETE(req: Request) {
   const admin = await requireAdmin(req);
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!BUCKET)  return NextResponse.json({ error: "Storage bucket not configured" }, { status: 503 });
 
   const { searchParams } = new URL(req.url);
   const docId      = searchParams.get("id");
@@ -101,16 +88,16 @@ export async function DELETE(req: Request) {
   if (!docId) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
   try {
-    // 1. Delete the Firestore mediaLibrary document
-    await adminDb().collection("mediaLibrary").doc(docId).delete();
+    // 1. Delete the media_library row
+    const { error } = await supabaseAdmin().from("media_library").delete().eq("id", docId);
+    if (error) throw error;
 
-    // 2. Optionally delete Storage file (if caller passes storageKey)
+    // 2. Optionally delete the Storage object (best-effort)
     if (storageKey) {
-      try {
-        await adminStorage().bucket().file(storageKey).delete();
-      } catch {
-        // Storage delete is best-effort — don't fail the whole request
-      }
+      await supabaseAdmin()
+        .storage.from(STORAGE_BUCKET)
+        .remove([storageKey])
+        .catch(() => {});
     }
 
     return NextResponse.json({ ok: true });

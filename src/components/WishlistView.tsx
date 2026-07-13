@@ -6,7 +6,7 @@ import { useStore } from "@/components/StoreProvider";
 import ProductGrid from "@/components/ProductGrid";
 
 // Wishlist ids live in localStorage (client). The full catalog is passed in from
-// the server page so cards reflect the live Firestore data.
+// the server page so cards reflect the live catalog data.
 export default function WishlistView({ allProducts }: { allProducts: Product[] }) {
   const { wishlist } = useStore();
   const items = allProducts.filter((p) => wishlist.includes(p.id));

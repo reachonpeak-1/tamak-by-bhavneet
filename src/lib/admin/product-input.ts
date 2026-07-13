@@ -1,6 +1,6 @@
 import "server-only";
 import type { Product } from "@/lib/types";
-import { adminDb } from "@/lib/firebase/admin";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const slugify = (s: string) =>
   s.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
@@ -17,10 +17,10 @@ export const arr = (v: unknown): string[] =>
 
 type GalleryIn = { path?: string; blurDataURL?: string; url?: string; thumbUrl?: string; mediumUrl?: string; fullUrl?: string };
 
-// Keeps each image's path + blur, and PRESERVES an absolute (Firebase Storage)
+// Keeps each image's path + blur, and PRESERVES an absolute (Supabase Storage)
 // url when the uploader provides one — so admin-uploaded images resolve even
 // when the storefront serves seed images locally. Local "/path" urls are
-// ignored (they're re-derived at read time). Firestore rejects undefined, so
+// ignored (they're re-derived at read time). JSON.stringify drops undefined, so
 // url is only set when present.
 const galleryOf = (v: unknown): { path: string; blurDataURL: string; url?: string }[] =>
   Array.isArray(v)
@@ -42,7 +42,7 @@ const galleryOf = (v: unknown): { path: string; blurDataURL: string; url?: strin
         .filter((g) => g.path)
     : [];
 
-// Normalises raw editor input into a clean Firestore product document (no id /
+// Normalises raw editor input into a clean product document (no id /
 // timestamps — those are set by the route). Never trusts client numbers.
 export function normalizeProduct(b: Record<string, unknown>) {
   const gallery = galleryOf(b.gallery);
@@ -90,8 +90,9 @@ export function normalizeProduct(b: Record<string, unknown>) {
 // import reads this once and increments locally to mint ids for a batch of new
 // rows without re-querying per row.
 export async function currentMaxProductNum(): Promise<number> {
-  const snap = await adminDb().collection("products").get();
-  return snap.docs.reduce((m, d) => Math.max(m, Number(d.id.replace(/\D/g, "")) || 0), 0);
+  const { data, error } = await supabaseAdmin().from("products").select("id");
+  if (error) throw new Error(error.message);
+  return (data ?? []).reduce((m, r) => Math.max(m, Number(r.id.replace(/\D/g, "")) || 0), 0);
 }
 
 // Next free product id, e.g. "PROD_86".

@@ -4,6 +4,7 @@ import Link from "next/link";
 import Script from "next/script";
 import { useState } from "react";
 import { useStore } from "@/components/StoreProvider";
+import { useAuth } from "@/components/AuthProvider";
 import { inr } from "@/lib/format";
 
 type RazorpayOptions = {
@@ -27,6 +28,7 @@ const empty = { name: "", email: "", phone: "", address: "", city: "", pincode: 
 
 export default function CheckoutPage() {
   const { cart, clearCart, toast } = useStore();
+  const { getToken } = useAuth();
   const [form, setForm] = useState(empty);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
@@ -49,10 +51,15 @@ export default function CheckoutPage() {
     }
     setBusy(true);
     try {
-      // online → create Razorpay order
+      // online → create Razorpay order (send auth token so the order is
+      // attributed to the signed-in buyer server-side; guests omit it)
+      const token = await getToken().catch(() => null);
       const res = await fetch("/api/razorpay/order", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ items }),
       });
       const data = await res.json();
@@ -72,7 +79,7 @@ export default function CheckoutPage() {
           const v = await fetch("/api/razorpay/verify", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ...r, items, customer: form }),
+            body: JSON.stringify({ ...r, customer: form }),
           });
           const vd = await v.json();
           if (v.ok && vd.ok) {
@@ -84,30 +91,6 @@ export default function CheckoutPage() {
         },
       });
       rzp.open();
-    } catch (e) {
-      toast((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  // TEMPORARY — create an order without going through payment, to test the order flow.
-  async function placeTestOrder() {
-    if (!valid) {
-      toast("Please complete all fields correctly");
-      return;
-    }
-    setBusy(true);
-    try {
-      const res = await fetch("/api/order/test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items, customer: form }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error || "Could not create test order");
-      clearCart();
-      setDone(data.orderRef);
     } catch (e) {
       toast((e as Error).message);
     } finally {
@@ -176,10 +159,6 @@ export default function CheckoutPage() {
           <div className="row total"><span>Total</span><span>₹{inr(total)}</span></div>
           <button className="btn btn--gold" onClick={placeOrder} disabled={busy}>
             {busy ? "Please wait…" : `Pay ₹${inr(total)}`}
-          </button>
-          {/* TEMPORARY — test order creation without payment. Remove before going live. */}
-          <button className="btn btn--ghost" onClick={placeTestOrder} disabled={busy} style={{ marginTop: ".6rem" }}>
-            {busy ? "Please wait…" : "Create test order (no payment)"}
           </button>
         </aside>
       </div>

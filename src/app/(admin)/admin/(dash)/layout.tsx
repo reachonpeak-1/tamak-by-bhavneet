@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { requireAdminSession } from "@/lib/firebase/requireAdminSession";
+import { requireAdminSession } from "@/lib/supabase/requireAdminSession";
 import AdminShell from "@/components/admin/AdminShell";
 
 // Gated admin shell. The login page lives outside this (dash) group, so it is

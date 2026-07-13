@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/firebase/requireAdmin";
-import { adminDb } from "@/lib/firebase/admin";
+import { requireAdmin } from "@/lib/supabase/requireAdmin";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
 import { getAllProductsFresh, getNewIn } from "@/lib/data/products";
 import { listActiveSubscribers } from "@/lib/data/subscribers";
@@ -88,7 +88,8 @@ export async function POST(req: Request) {
       createdAt: new Date().toISOString(),
     };
     try {
-      await adminDb().collection("campaigns").add(record);
+      const { error } = await supabaseAdmin().from("campaigns").insert({ data: record });
+      if (error) throw error;
     } catch (e) {
       console.error("[newsletter] campaign record failed:", (e as Error).message);
     }

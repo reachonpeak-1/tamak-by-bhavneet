@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/firebase/requireAdmin";
-import { adminDb } from "@/lib/firebase/admin";
+import { requireAdmin } from "@/lib/supabase/requireAdmin";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
 import { bumpCategories } from "@/lib/revalidate";
 
@@ -38,9 +38,13 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     order: Math.max(0, Math.floor(Number(b.order) || 0)),
   };
   try {
-    const ref = adminDb().collection("categories").doc(id);
-    if (!(await ref.get()).exists) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    await ref.set(update, { merge: true });
+    const sb = supabaseAdmin();
+    const { data: row, error: readErr } = await sb.from("categories").select("data").eq("id", id).maybeSingle();
+    if (readErr) throw readErr;
+    if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const merged = { ...(row.data as Record<string, unknown>), ...update };
+    const { error: updateErr } = await sb.from("categories").update({ data: merged }).eq("id", id);
+    if (updateErr) throw updateErr;
     await logAudit({ actor: admin.email ?? admin.uid, action: "category.update", target: { collection: "categories", id }, after: update });
     bumpCategories();
     revalidatePath("/");
@@ -56,7 +60,8 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
   try {
-    await adminDb().collection("categories").doc(id).delete();
+    const { error } = await supabaseAdmin().from("categories").delete().eq("id", id);
+    if (error) throw error;
     await logAudit({ actor: admin.email ?? admin.uid, action: "category.delete", target: { collection: "categories", id } });
     bumpCategories();
     revalidatePath("/");

@@ -27,6 +27,10 @@ export default function ImageUploader({
   const { getToken } = useAuth();
   const { toast } = useStore();
   const [busy, setBusy] = useState(false);
+  // Optimistic rotation: CSS quarter-turns per image path while the server
+  // rotates the real file; cleared when the rotated URLs land in form state.
+  const [turns, setTurns] = useState<Record<string, number>>({});
+  const [rotatingPath, setRotatingPath] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -74,6 +78,47 @@ export default function ImageUploader({
     }
   }
 
+  // Physically rotates the image on the server (updates storage + DB), then
+  // syncs the new URLs into the form state so a later Save doesn't write the
+  // old ones back. The thumbnail turns instantly via CSS while the server works.
+  const rotate = async (i: number, direction: "cw" | "ccw") => {
+    const g = value[i];
+    if (rotatingPath === g.path) return;
+    const delta = direction === "cw" ? 1 : -1;
+    setTurns((t) => ({ ...t, [g.path]: (t[g.path] ?? 0) + delta }));
+    setRotatingPath(g.path);
+    try {
+      const token = await getToken();
+      const res = await fetch("/api/admin/media/rotate", {
+        method: "POST",
+        headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+        body: JSON.stringify({ path: g.path, url: g.url, fullUrl: g.fullUrl, direction }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j.error || "Rotate failed");
+      const n = [...value];
+      n[i] = {
+        path: j.path,
+        url: j.url,
+        thumbUrl: j.thumbUrl,
+        mediumUrl: j.mediumUrl,
+        fullUrl: j.fullUrl,
+        blurDataURL: j.blurDataURL,
+      };
+      onChange(n);
+      // New path key → the fresh entry renders with no CSS turn; drop the old key.
+      setTurns((t) => {
+        const { [g.path]: _drop, ...rest } = t;
+        return rest;
+      });
+    } catch (e) {
+      setTurns((t) => ({ ...t, [g.path]: (t[g.path] ?? 0) - delta }));
+      toast((e as Error).message);
+    } finally {
+      setRotatingPath(null);
+    }
+  };
+
   const move = (i: number, d: number) => {
     const j = i + d;
     if (j < 0 || j >= value.length) return;
@@ -92,32 +137,42 @@ export default function ImageUploader({
   return (
     <div>
       <div className="adm-thumbs">
-        {value.map((g, i) => (
-          <div className={`adm-thumb${i === 0 ? " is-primary" : ""}`} key={g.path + i}>
-            {g.url ? (
-              <Image
-                src={g.thumbUrl || g.url || ""}
-                alt=""
-                width={108}
-                height={136}
-                loading="lazy"
-                sizes="108px"
-                placeholder={g.blurDataURL ? "blur" : "empty"}
-                blurDataURL={g.blurDataURL || undefined}
-                style={{ objectFit: "cover" }}
-              />
-            ) : (
-              <div className="adm-thumb__ph" />
-            )}
-            <div className="adm-thumb__bar">
-              <button type="button" title="Move left" onClick={() => move(i, -1)}>‹</button>
-              {i !== 0 && <button type="button" title="Make primary" onClick={() => makePrimary(i)}>★</button>}
-              <button type="button" title="Remove" onClick={() => remove(i)}>✕</button>
-              <button type="button" title="Move right" onClick={() => move(i, 1)}>›</button>
+        {value.map((g, i) => {
+          const turn = turns[g.path] ?? 0;
+          const isRot = rotatingPath === g.path;
+          return (
+            <div className={`adm-thumb${i === 0 ? " is-primary" : ""}`} key={g.path + i} style={{ overflow: "hidden" }}>
+              {g.url ? (
+                <Image
+                  src={g.thumbUrl || g.url || ""}
+                  alt=""
+                  width={108}
+                  height={136}
+                  loading="lazy"
+                  sizes="108px"
+                  placeholder={g.blurDataURL ? "blur" : "empty"}
+                  blurDataURL={g.blurDataURL || undefined}
+                  style={{
+                    objectFit: "cover",
+                    transform: `rotate(${turn * 90}deg)${turn % 2 !== 0 ? " scale(1.26)" : ""}`,
+                    transition: "transform .25s ease",
+                  }}
+                />
+              ) : (
+                <div className="adm-thumb__ph" />
+              )}
+              <div className="adm-thumb__bar">
+                <button type="button" title="Move left" onClick={() => move(i, -1)}>‹</button>
+                <button type="button" title="Rotate left" disabled={isRot} onClick={() => rotate(i, "ccw")}>↺</button>
+                {i !== 0 && <button type="button" title="Make primary" onClick={() => makePrimary(i)}>★</button>}
+                <button type="button" title="Remove" onClick={() => remove(i)}>✕</button>
+                <button type="button" title="Rotate right" disabled={isRot} onClick={() => rotate(i, "cw")}>↻</button>
+                <button type="button" title="Move right" onClick={() => move(i, 1)}>›</button>
+              </div>
+              {i === 0 && <span className="adm-thumb__tag">Primary</span>}
             </div>
-            {i === 0 && <span className="adm-thumb__tag">Primary</span>}
-          </div>
-        ))}
+          );
+        })}
 
         {/* Directly upload from computer */}
         <input
@@ -177,6 +232,7 @@ export default function ImageUploader({
         existing={value.map((g) => g.path)}
         onUpload={add}
         busy={busy}
+        getToken={getToken}
       />
     </div>
   );

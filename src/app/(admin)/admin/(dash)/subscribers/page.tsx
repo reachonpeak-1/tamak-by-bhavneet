@@ -1,4 +1,4 @@
-import { adminDb } from "@/lib/firebase/admin";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -7,10 +7,14 @@ interface Sub { id: string; email: string; source?: string; status?: string; cre
 export default async function SubscribersPage() {
   let subs: Sub[] = [];
   try {
-    const snap = await adminDb().collection("subscribers").orderBy("createdAt", "desc").limit(1000).get();
-    subs = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Sub, "id">) }));
+    const { data } = await supabaseAdmin()
+      .from("subscribers")
+      .select("id,data")
+      .order("created_at", { ascending: false })
+      .limit(1000);
+    subs = (data ?? []).map((r) => ({ ...(r.data as Omit<Sub, "id">), id: r.id }));
   } catch {
-    /* collection may not exist yet */
+    /* table may be empty yet */
   }
 
   return (

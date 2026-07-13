@@ -6,7 +6,7 @@ import { useGallery, type GalleryItem } from "@/components/admin/useGallery";
 import type { GItem } from "@/components/admin/ImageUploader";
 
 /**
- * Modal that browses ALL product images already in Firebase Storage and lets the
+ * Modal that browses ALL product images already in Supabase Storage and lets the
  * admin select existing ones to attach to a gallery (product- or variant-level),
  * instead of re-uploading. Paginated via "Load more".
  *
@@ -20,6 +20,7 @@ export default function GalleryPicker({
   existing = [],
   onUpload,
   busy = false,
+  getToken,
 }: {
   open: boolean;
   onClose: () => void;
@@ -30,31 +31,13 @@ export default function GalleryPicker({
   onUpload?: (files: FileList | null) => void;
   /** reflects the parent's uploading state so the upload button can show a spinner */
   busy?: boolean;
+  /** function to get the auth token (passed from parent) */
+  getToken: () => Promise<string | null>;
 }) {
   const { images, loading, error, hasMore, load } = useGallery("", 30);
   const [selected, setSelected] = useState<Record<string, GalleryItem>>({});
-  const [deleting, setDeleting] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const added = new Set(existing);
-
-  async function deleteImage(img: GalleryItem, e: React.MouseEvent) {
-    e.stopPropagation();
-    if (!confirm(`Delete "${img.originalFileName || img.path}"?`)) return;
-
-    setDeleting(img.id);
-    try {
-      const res = await fetch(`/api/admin/gallery?id=${img.id}&storageKey=${encodeURIComponent(img.path)}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) throw new Error("Delete failed");
-      // Reload gallery after deletion
-      load(true);
-    } catch (e) {
-      alert((e as Error).message);
-    } finally {
-      setDeleting(null);
-    }
-  }
 
   // Load the first page each time the modal opens. (Selection is cleared on close,
   // so it starts empty — avoids a synchronous setState inside this effect.)
@@ -150,59 +133,28 @@ export default function GalleryPicker({
             {images.map((img) => {
               const isAdded = added.has(img.path);
               const isSel = Boolean(selected[img.path]);
-              const isDel = deleting === img.id;
               return (
-                <div
+                <button
+                  type="button"
                   key={img.name}
-                  style={{ position: "relative" }}
+                  className={`adm-pick${isSel ? " is-selected" : ""}${isAdded ? " is-added" : ""}`}
+                  onClick={() => toggle(img)}
+                  title={img.path}
                 >
-                  <button
-                    type="button"
-                    className={`adm-pick${isSel ? " is-selected" : ""}${isAdded ? " is-added" : ""}`}
-                    onClick={() => toggle(img)}
-                    title={img.path}
-                  >
-                    {/* Use thumbUrl (150px) + blur-up for blazing-fast grid loading */}
-                    <Image
-                      src={img.thumbUrl || img.url}
-                      alt=""
-                      width={120}
-                      height={160}
-                      loading="lazy"
-                      sizes="120px"
-                      placeholder={img.blurDataURL ? "blur" : "empty"}
-                      blurDataURL={img.blurDataURL || undefined}
-                    />
-                    {isAdded && <span className="adm-pick__added">Added</span>}
-                    {isSel && <span className="adm-pick__check">✓</span>}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => deleteImage(img, e)}
-                    disabled={isDel}
-                    style={{
-                      position: "absolute",
-                      top: "4px",
-                      right: "4px",
-                      width: "28px",
-                      height: "28px",
-                      padding: 0,
-                      background: "rgba(200,0,0,0.8)",
-                      border: "none",
-                      borderRadius: "4px",
-                      color: "white",
-                      cursor: isDel ? "not-allowed" : "pointer",
-                      fontSize: "14px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      opacity: isDel ? 0.6 : 1,
-                    }}
-                    title="Delete image"
-                  >
-                    {isDel ? "⏳" : "🗑"}
-                  </button>
-                </div>
+                  {/* Use thumbUrl (150px) + blur-up for blazing-fast grid loading */}
+                  <Image
+                    src={img.thumbUrl || img.url}
+                    alt=""
+                    width={120}
+                    height={160}
+                    loading="lazy"
+                    sizes="120px"
+                    placeholder={img.blurDataURL ? "blur" : "empty"}
+                    blurDataURL={img.blurDataURL || undefined}
+                  />
+                  {isAdded && <span className="adm-pick__added">Added</span>}
+                  {isSel && <span className="adm-pick__check">✓</span>}
+                </button>
               );
             })}
           </div>

@@ -1,9 +1,20 @@
+"use client";
+
 import { CONTENT_DEFAULTS } from "@/lib/content-defaults";
+import { useState, useEffect } from "react";
 
 type Data = typeof CONTENT_DEFAULTS.storeInfo;
 const telHref = (p: string) => `tel:${p.replace(/[^\d+]/g, "")}`;
 
 export default function Visit({ data = CONTENT_DEFAULTS.storeInfo }: { data?: Data }) {
+  const [loadMap, setLoadMap] = useState(false);
+  
+  useEffect(() => {
+    // Load map automatically after 3.5s to not block initial page load
+    const t = setTimeout(() => setLoadMap(true), 3500);
+    return () => clearTimeout(t);
+  }, []);
+
   const embedUrl = "https://maps.google.com/maps?q=30.179151,74.939499&hl=en&z=15&output=embed";
   const displayAddress = "SCO - 40, Dabwali Rd, Ganpati Enclave,\nBathinda, Punjab 151001";
 
@@ -53,17 +64,28 @@ export default function Visit({ data = CONTENT_DEFAULTS.storeInfo }: { data?: Da
             </div>
           </div>
 
-          <div className="visit__card reveal">
-            <iframe
-              title="तमक by Bhavneet Store Location — Bathinda"
-              src={embedUrl}
-              width="100%"
-              height="100%"
-              style={{ border: 0, position: "absolute", inset: 0, width: "100%", height: "100%" }}
-              allowFullScreen
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-            />
+          <div 
+            className="visit__card reveal"
+            onMouseEnter={() => setLoadMap(true)}
+            onClick={() => setLoadMap(true)}
+            onTouchStart={() => setLoadMap(true)}
+          >
+            {loadMap ? (
+              <iframe
+                title="तमक by Bhavneet Store Location — Bathinda"
+                src={embedUrl}
+                width="100%"
+                height="100%"
+                style={{ border: 0, position: "absolute", inset: 0, width: "100%", height: "100%" }}
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
+            ) : (
+              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(250, 245, 238, 0.5)", color: "var(--gold)", cursor: "pointer", fontSize: "0.9rem", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                Tap to load Map
+              </div>
+            )}
             <div className="visit__pin-badge">
               <div className="city deva">{data.cityDeva}</div>
               <div className="sub">{data.citySub}</div>
