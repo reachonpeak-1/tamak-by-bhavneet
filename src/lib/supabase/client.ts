@@ -15,6 +15,11 @@ export function getBrowserClient(): SupabaseClient {
   if (!isSupabaseConfigured) {
     throw new Error("Supabase is not configured — set NEXT_PUBLIC_SUPABASE_* env vars.");
   }
-  if (!client) client = createBrowserClient(url!, anonKey!);
+  // detectSessionInUrl: false — OAuth code exchange happens exclusively via the
+  // server-side /auth/callback route (see src/app/auth/callback/route.ts), which
+  // also enforces the admin check. Without this, the browser client would silently
+  // self-consume a stray ?code= on any page (this one is mounted globally via
+  // AuthProvider), bypassing that check with no visible error.
+  if (!client) client = createBrowserClient(url!, anonKey!, { auth: { detectSessionInUrl: false } });
   return client;
 }
