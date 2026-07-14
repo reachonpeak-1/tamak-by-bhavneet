@@ -37,28 +37,40 @@ const byOrder = (a: Category, b: Category) =>
   (a.order ?? 0) - (b.order ?? 0) || (a.createdAt < b.createdAt ? -1 : 1);
 
 async function readCategoriesFromDb(): Promise<Category[]> {
-  try {
-    const { data, error } = await supabaseAdmin().from("categories").select("id,data");
-    if (error) throw error;
-    return (data ?? [])
-      .map((r) => {
-        const c = r.data as Category;
-        return { ...c, id: r.id, subs: Array.isArray(c.subs) ? c.subs : [] };
-      })
-      .sort(byOrder);
-  } catch (e) {
-    console.error("[categories] Supabase read failed:", (e as Error).message);
-    return [];
-  }
+  const { data, error } = await supabaseAdmin().from("categories").select("id,data");
+  if (error) throw error;
+  return (data ?? [])
+    .map((r) => {
+      const c = r.data as Category;
+      return { ...c, id: r.id, subs: Array.isArray(c.subs) ? c.subs : [] };
+    })
+    .sort(byOrder);
 }
 
+// NOT wrapped in try/catch here: unstable_cache only caches resolved values, so a thrown
+// error is never cached — a transient/config failure self-heals on the very next request
+// instead of being stuck behind the 3600s revalidate window. Callers below catch it.
 const fetchAll = unstable_cache(readCategoriesFromDb, ["categories:all"], {
   tags: ["categories"],
   revalidate: 3600,
 });
 
 /** Storefront read — cached (ISR), invalidated on admin save via bumpCategories(). */
-export const listCategories = cache((): Promise<Category[]> => fetchAll());
+export const listCategories = cache(async (): Promise<Category[]> => {
+  try {
+    return await fetchAll();
+  } catch (e) {
+    console.error("[categories] Supabase read failed:", (e as Error).message);
+    return [];
+  }
+});
 
 /** Admin read — always fresh from Supabase so edits reflect immediately. */
-export const listCategoriesFresh = cache((): Promise<Category[]> => readCategoriesFromDb());
+export const listCategoriesFresh = cache(async (): Promise<Category[]> => {
+  try {
+    return await readCategoriesFromDb();
+  } catch (e) {
+    console.error("[categories] Supabase read failed:", (e as Error).message);
+    return [];
+  }
+});

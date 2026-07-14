@@ -22,28 +22,33 @@ function mergeSection<T>(def: T, stored: Record<string, unknown>): T {
 }
 
 // Reads the content row for a section (cached, tag "content"+"content:<s>").
-// Falls back to the bundled defaults so the storefront never breaks pre-seed.
-function fetcher(section: ContentSection) {
-  return unstable_cache(
-    async () => {
-      try {
-        const { data, error } = await supabaseAdmin()
-          .from("content")
-          .select("data")
-          .eq("id", section)
-          .maybeSingle();
-        if (error) throw error;
-        if (data) return mergeSection(CONTENT_DEFAULTS[section], data.data as Record<string, unknown>);
-      } catch (e) {
-        console.error(`[content:${section}] read failed, using defaults:`, (e as Error).message);
-      }
-      return CONTENT_DEFAULTS[section];
-    },
-    ["content", section],
-    { tags: ["content", `content:${section}`], revalidate: 3600 }
-  );
+async function readContentFromDb(section: ContentSection) {
+  const { data, error } = await supabaseAdmin()
+    .from("content")
+    .select("data")
+    .eq("id", section)
+    .maybeSingle();
+  if (error) throw error;
+  if (data) return mergeSection(CONTENT_DEFAULTS[section], data.data as Record<string, unknown>);
+  return CONTENT_DEFAULTS[section];
 }
 
-export const getContent = cache(<S extends ContentSection>(section: S): Promise<(typeof CONTENT_DEFAULTS)[S]> => {
-  return fetcher(section)() as Promise<(typeof CONTENT_DEFAULTS)[S]>;
+// NOT wrapped in try/catch here: unstable_cache only caches resolved values, so a thrown
+// error is never cached — a transient/config failure self-heals on the very next request
+// instead of being stuck behind the 3600s revalidate window. getContent() below catches it.
+function fetcher(section: ContentSection) {
+  return unstable_cache(() => readContentFromDb(section), ["content", section], {
+    tags: ["content", `content:${section}`],
+    revalidate: 3600,
+  });
+}
+
+// Falls back to the bundled defaults so the storefront never breaks pre-seed.
+export const getContent = cache(async <S extends ContentSection>(section: S): Promise<(typeof CONTENT_DEFAULTS)[S]> => {
+  try {
+    return (await fetcher(section)()) as (typeof CONTENT_DEFAULTS)[S];
+  } catch (e) {
+    console.error(`[content:${section}] read failed, using defaults:`, (e as Error).message);
+    return CONTENT_DEFAULTS[section];
+  }
 });
