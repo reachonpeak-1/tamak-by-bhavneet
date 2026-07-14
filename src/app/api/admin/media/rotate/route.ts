@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import sharp from "sharp";
 import { requireAdmin } from "@/lib/supabase/requireAdmin";
 import { supabaseAdmin, STORAGE_BUCKET, publicStorageUrl } from "@/lib/supabase/admin";
+import { uploadImage, assertStoredImageValid } from "@/lib/supabase/storage";
 import { logAudit } from "@/lib/audit";
 import { bumpProducts } from "@/lib/revalidate";
 
@@ -34,16 +35,29 @@ const toRelPath = (key: string) => (key.startsWith("products/") ? key.slice("pro
 /** Reject traversal: a safe relative path has no empty/"."/".." segments. */
 const isSafePath = (p: string) => p.split("/").every((seg) => seg && seg !== "." && seg !== "..");
 
+/** Bytes that sharp can actually decode, else null — never feed garbage into the pipeline. */
+async function decodable(buf: Buffer): Promise<Buffer | null> {
+  try {
+    await sharp(buf).metadata();
+    return buf;
+  } catch {
+    return null;
+  }
+}
+
 async function download(key: string): Promise<Buffer | null> {
   // Public bucket → fetch via the CDN-backed public URL (the authenticated
   // storage endpoint always hits origin and is several times slower).
   try {
     const res = await fetch(publicStorageUrl(key));
-    if (res.ok) return Buffer.from(await res.arrayBuffer());
+    if (res.ok) {
+      const buf = await decodable(Buffer.from(await res.arrayBuffer()));
+      if (buf) return buf;
+    }
   } catch {}
   const { data, error } = await supabaseAdmin().storage.from(STORAGE_BUCKET).download(key);
   if (error || !data) return null;
-  return Buffer.from(await data.arrayBuffer());
+  return decodable(Buffer.from(await data.arrayBuffer()));
 }
 
 interface RotateBody {
@@ -109,7 +123,7 @@ export async function POST(req: Request) {
     if (srcBuf) { srcKey = key; break; }
   }
   if (!srcBuf || !srcKey) {
-    return NextResponse.json({ error: "Image file not found in storage" }, { status: 404 });
+    return NextResponse.json({ error: "Source image not found in storage, or not a readable image" }, { status: 404 });
   }
 
   try {
@@ -131,13 +145,13 @@ export async function POST(req: Request) {
           .webp({ quality: v.quality })
           .toBuffer();
         const key = `${newBase}-${v.suffix}.webp`;
-        const { error } = await supabaseAdmin()
-          .storage.from(STORAGE_BUCKET)
-          .upload(key, out, { contentType: "image/webp", cacheControl: "31536000", upsert: true });
-        if (error) throw new Error(error.message);
-        urls[v.suffix] = publicStorageUrl(key);
+        urls[v.suffix] = await uploadImage(key, out, "image/webp");
       }),
     ]);
+
+    // The bytes only prove sound once they survive the round-trip: a transport-level mangling of the
+    // body would otherwise store garbage under a 200 OK. Thumb is the cheapest object to re-read.
+    await assertStoredImageValid(`${newBase}-thumb.webp`);
     const blurDataURL = `data:image/webp;base64,${blurBuf.toString("base64")}`;
 
     const newRelPath = toRelPath(`${newBase}.webp`);

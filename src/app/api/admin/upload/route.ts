@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import sharp from "sharp";
 import { requireAdmin } from "@/lib/supabase/requireAdmin";
-import { supabaseAdmin, STORAGE_BUCKET, publicStorageUrl } from "@/lib/supabase/admin";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import { uploadImage, assertStoredImageValid } from "@/lib/supabase/storage";
 
 export const runtime = "nodejs";
 
@@ -13,22 +14,6 @@ const VARIANTS = [
   { width: 600,  quality: 80, suffix: "medium" },
   { width: 150,  quality: 75, suffix: "thumb" },
 ] as const;
-
-/**
- * Upload a buffer to Supabase Storage (public `media` bucket) and return its
- * public URL.
- */
-async function uploadToStorage(
-  key: string,
-  buf: Buffer,
-  contentType: string,
-) {
-  const { error } = await supabaseAdmin()
-    .storage.from(STORAGE_BUCKET)
-    .upload(key, buf, { contentType, cacheControl: "31536000", upsert: true });
-  if (error) throw new Error(error.message);
-  return publicStorageUrl(key);
-}
 
 // POST multipart { file, prefix } → uploads to Storage at <root>/<prefix>/<name>
 // and returns { path, url, thumbUrl, mediumUrl, fullUrl, blurDataURL }.
@@ -84,7 +69,7 @@ export async function POST(req: Request) {
     // ── 2. Upload original as backup ──────────────────────────────────────
     const origExt = imgMeta.format;
     const originalStorageKey = `${dirKey}/${baseName}-original.${origExt}`;
-    await uploadToStorage(originalStorageKey, rawBuffer, detectedType);
+    await uploadImage(originalStorageKey, rawBuffer, detectedType);
 
     // ── 3. Generate optimised WebP variants via Sharp ─────────────────────
     const pipeline = sharp(rawBuffer, { limitInputPixels: 40_000_000, failOn: "error" }).rotate();
@@ -97,8 +82,11 @@ export async function POST(req: Request) {
         .webp({ quality: v.quality })
         .toBuffer();
       const key = `${dirKey}/${baseName}-${v.suffix}.webp`;
-      urls[v.suffix] = await uploadToStorage(key, buf, "image/webp");
+      urls[v.suffix] = await uploadImage(key, buf, "image/webp");
     }
+
+    // Prove the stored bytes survived the round-trip rather than trusting the 200 OK.
+    await assertStoredImageValid(`${dirKey}/${baseName}-thumb.webp`);
 
     // ── 4. Generate blurDataURL (tiny 16px base64 placeholder) ────────────
     const blurBuf = await pipeline
