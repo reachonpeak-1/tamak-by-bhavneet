@@ -15,7 +15,11 @@ const COOKIE_PREFIX = `sb-${projectRef}-auth-token`;
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   if (pathname.startsWith("/admin/login")) return NextResponse.next();
-  const hasSession = request.cookies.getAll().some((c) => c.name.startsWith(COOKIE_PREFIX));
+  // The PKCE code-verifier cookie shares this prefix but means "an OAuth flow
+  // has started", not "signed in" — don't let it pass as a session.
+  const hasSession = request.cookies
+    .getAll()
+    .some((c) => c.name.startsWith(COOKIE_PREFIX) && !c.name.endsWith("-code-verifier"));
   if (!hasSession) {
     const url = new URL("/admin/login", request.url);
     url.searchParams.set("next", pathname);

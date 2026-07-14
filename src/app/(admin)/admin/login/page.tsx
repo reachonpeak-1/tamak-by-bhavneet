@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 
 export default function AdminLogin() {
@@ -41,6 +41,37 @@ export default function AdminLogin() {
       setBusy(false);
     }
   }
+
+  // Deliberately NOT run() — that chains establishSession(), whose 403 for a
+  // not-yet-signed-in user triggers a DELETE /api/admin/session, and signOut()
+  // deletes the PKCE code-verifier cookie that /auth/callback needs on the way
+  // back from Google. The browser is already leaving for Google at that point.
+  async function runGoogle() {
+    setErr(null);
+    setBusy(true);
+    try {
+      const nextParam = new URLSearchParams(window.location.search).get("next");
+      const dest = nextParam && nextParam.startsWith("/admin") ? nextParam : "/admin";
+      await signInGoogle(dest);
+    } catch (e) {
+      setErr((e as Error).message || "Could not sign in");
+      setBusy(false);
+    }
+  }
+
+  // Google sign-in redirects through /auth/callback, which does the token
+  // exchange and admin check server-side and only sends us back here on
+  // failure, tagging the reason via ?error=.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const error = params.get("error");
+    if (!error) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setErr(error);
+    params.delete("error");
+    const cleaned = params.toString();
+    window.history.replaceState({}, "", window.location.pathname + (cleaned ? `?${cleaned}` : ""));
+  }, []);
 
   return (
     <div className="adm-login">
@@ -218,7 +249,7 @@ export default function AdminLogin() {
           <button
             className="adm-btn adm-btn--ghost adm-btn--block adm-login__google-btn"
             disabled={busy}
-            onClick={() => run(() => signInGoogle())}
+            onClick={runGoogle}
           >
             <svg viewBox="0 0 24 24" width="18" height="18" style={{ flexShrink: 0 }}>
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />

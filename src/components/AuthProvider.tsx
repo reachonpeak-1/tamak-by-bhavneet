@@ -30,7 +30,7 @@ interface AuthCtx {
   user: AuthUser | null;
   loading: boolean;
   configured: boolean;
-  signInGoogle: () => Promise<void>;
+  signInGoogle: (next?: string) => Promise<void>;
   signInEmail: (email: string, pw: string) => Promise<void>;
   signUpEmail: (email: string, pw: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -59,10 +59,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     loading,
     configured: isSupabaseConfigured,
-    signInGoogle: async () => {
+    signInGoogle: async (next: string = "/") => {
+      // Route through our own server-side callback (exchangeCodeForSession)
+      // rather than relying on the browser client's automatic ?code=
+      // detection, which silently no-ops if it can't find its own PKCE
+      // code-verifier in storage at the right moment.
       const { error } = await getBrowserClient().auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: window.location.origin },
+        options: { redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}` },
       });
       if (error) throw new Error("Google sign-in failed. Please try again.");
     },

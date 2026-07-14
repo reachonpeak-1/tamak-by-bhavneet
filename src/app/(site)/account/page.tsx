@@ -158,7 +158,7 @@ export default function AccountPage() {
           <span className="eyebrow">Account</span>
           <h1 style={{ fontSize: "2rem" }}>{mode === "in" ? "Sign in" : "Create account"}</h1>
         </div>
-        <button className="btn btn--ghost" style={{ width: "100%", justifyContent: "center", marginBottom: "1.1rem" }} onClick={() => signInGoogle().catch((e) => setErr(e.message))}>
+        <button className="btn btn--ghost" style={{ width: "100%", justifyContent: "center", marginBottom: "1.1rem" }} onClick={() => signInGoogle("/account").catch((e) => setErr(e.message))}>
           Continue with Google
         </button>
         <div className="count-note" style={{ textAlign: "center", margin: "0.8rem 0" }}>or</div>
