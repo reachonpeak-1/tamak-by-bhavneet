@@ -140,7 +140,7 @@ export default function ShopClientView({
       result.sort((a, b) => b.price - a.price);
     } else if (sortBy === "rating") {
       result.sort((a, b) => b.rating - a.rating);
-    } else if (sortBy === "newest") {
+    } else if (sortBy === "new") {
       result = result.filter((p) => p.tag === "New").concat(result.filter((p) => p.tag !== "New"));
     }
 

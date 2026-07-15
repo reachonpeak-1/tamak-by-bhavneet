@@ -115,7 +115,7 @@ export default function ShopToolbar({
               aria-label="Sort products"
             >
               <option value="featured">Sort: Featured</option>
-              <option value="newest">New Arrivals</option>
+              <option value="new">New Arrivals</option>
               <option value="price-asc">Price: Low to High</option>
               <option value="price-desc">Price: High to Low</option>
               <option value="rating">Highest Rated</option>
