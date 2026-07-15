@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { useStore } from "@/components/StoreProvider";
 import { useDraft } from "@/lib/use-draft";
-
-const STATUSES = ["cod_pending", "pending", "confirmed", "packed", "shipped", "delivered", "cancelled", "refunded", "paid"];
+import { ORDER_STATUSES } from "@/lib/data/order-status";
 
 export default function OrderStatusControl({
   id,
@@ -68,7 +67,7 @@ export default function OrderStatusControl({
       <label className="adm-field">
         <span>Status</span>
         <select className="adm-select" value={s} onChange={(e) => setS(e.target.value)}>
-          {STATUSES.map((x) => (
+          {ORDER_STATUSES.map((x) => (
             <option key={x} value={x}>{x.replace("_", " ")}</option>
           ))}
         </select>

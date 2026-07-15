@@ -2,20 +2,19 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/supabase/requireAdmin";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
+import { ORDER_STATUSES } from "@/lib/data/orders";
 
 export const runtime = "nodejs";
 
-const ALLOWED_STATUS = [
-  "cod_pending", "pending", "confirmed", "packed", "shipped", "delivered", "cancelled", "refunded", "paid",
-];
+const ALLOWED_STATUS: string[] = ORDER_STATUSES;
 
-// PATCH { status?, tracking?, markPaid? } — update one order. Bearer admin only.
+// PATCH { status?, tracking?, markPaid?, notes? } — update one order. Bearer admin only.
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const admin = await requireAdmin(req);
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
 
-  let body: { status?: string; tracking?: string; markPaid?: boolean };
+  let body: { status?: string; tracking?: string; markPaid?: boolean; notes?: string };
   try {
     body = await req.json();
   } catch {
@@ -28,6 +27,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     update.status = body.status;
   }
   if (typeof body.tracking === "string") update.tracking = body.tracking.trim();
+  if (typeof body.notes === "string") update.notes = body.notes.slice(0, 5000);
   if (body.markPaid) update.paidAt = new Date().toISOString();
   if (Object.keys(update).length === 0) return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
 

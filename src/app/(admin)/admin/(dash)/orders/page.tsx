@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { getOrders } from "@/lib/data/orders";
+import { getOrders, ORDER_STATUSES } from "@/lib/data/orders";
 import { inr } from "@/lib/format";
+import OrderRowStatus from "@/components/admin/OrderRowStatus";
 
 export const dynamic = "force-dynamic";
 
-const STATUSES = ["cod_pending", "pending", "confirmed", "packed", "shipped", "delivered", "cancelled", "refunded", "paid"];
 const within = (iso: string, from?: string, to?: string) =>
   (!from || iso.slice(0, 10) >= from) && (!to || iso.slice(0, 10) <= to);
 
@@ -43,7 +43,7 @@ export default async function OrdersPage({
           <span>Status</span>
           <select name="status" className="adm-select" defaultValue={status ?? ""}>
             <option value="">All</option>
-            {STATUSES.map((x) => <option key={x} value={x}>{x.replace("_", " ")}</option>)}
+            {ORDER_STATUSES.map((x) => <option key={x} value={x}>{x.replace("_", " ")}</option>)}
           </select>
         </label>
         <label className="adm-field" style={{ marginBottom: 0 }}>
@@ -80,7 +80,7 @@ export default async function OrdersPage({
                   <td data-label="Items">{(o.lines ?? []).reduce((s, l) => s + l.qty, 0)}</td>
                   <td data-label="Total">₹{inr((o.amount || 0) / 100)}</td>
                   <td data-label="Method">{o.method === "cod" ? "COD" : "Online"}</td>
-                  <td data-label="Status"><span className={`adm-pill adm-pill--${o.status}`}>{o.status.replace("_", " ")}</span></td>
+                  <td data-label="Status"><OrderRowStatus id={o.id} status={o.status} /></td>
                 </tr>
               ))}
             </tbody>
@@ -94,9 +94,7 @@ export default async function OrdersPage({
                   <Link href={`/admin/orders/${o.id}`} className="adm-order-card-mobile__id">
                     #{o.id.slice(0, 7)}
                   </Link>
-                  <span className={`adm-pill adm-pill--${o.status}`}>
-                    {o.status.replace("_", " ")}
-                  </span>
+                  <OrderRowStatus id={o.id} status={o.status} />
                 </div>
                 
                 <div className="adm-order-card-mobile__body">

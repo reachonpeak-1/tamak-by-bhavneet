@@ -1,5 +1,9 @@
 import "server-only";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { ORDER_STATUSES, type OrderStatus } from "@/lib/data/order-status";
+
+export { ORDER_STATUSES };
+export type { OrderStatus };
 
 export interface OrderLine {
   id: string;
@@ -20,23 +24,14 @@ export interface OrderCustomer {
   pincode?: string;
 }
 
-export type OrderStatus =
-  | "cod_pending"
-  | "pending"
-  | "confirmed"
-  | "packed"
-  | "shipped"
-  | "delivered"
-  | "cancelled"
-  | "refunded"
-  | "paid";
-
 export interface Order {
   id: string;
   status: OrderStatus | string;
   method?: string; // "cod" | undefined (razorpay)
   amount: number; // paise
   subtotal: number; // rupees
+  shipping?: number; // rupees
+  tax?: number; // rupees
   currency: string;
   lines: OrderLine[];
   customer?: OrderCustomer | null;
@@ -48,6 +43,10 @@ export interface Order {
   paidAt?: string;
   coupon?: string;
   discount?: number;
+  /** Internal admin-only note — never shown to the customer. */
+  notes?: string;
+  /** Product ids whose stock decrement failed after a captured payment. */
+  needsRestock?: string[];
   statusHistory?: { status: string; at: string; by?: string }[];
 }
 

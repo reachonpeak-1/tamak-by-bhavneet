@@ -16,6 +16,7 @@ const vb = (m: string) => (m === "mandala" ? "0 0 200 200" : "0 0 240 280");
 export default function ProductCard({ p, priority = false }: { p: Product; priority?: boolean }) {
   const { addToBag, toggleWish, isWished, toast } = useStore();
   const [added, setAdded] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
   const saved = isWished(p.id);
 
   // Find secondary image for hover reveal
@@ -56,16 +57,20 @@ export default function ProductCard({ p, priority = false }: { p: Product; prior
         >
           {/* Primary Image */}
           {p.image ? (
-            <Image
-              src={p.gallery?.[0]?.mediumUrl || p.image}
-              alt={p.name}
-              fill
-              priority={priority}
-              sizes="(max-width:560px) 50vw, (max-width:900px) 33vw, 280px"
-              placeholder={p.gallery?.[0]?.blurDataURL || p.blurDataURL ? "blur" : "empty"}
-              blurDataURL={p.gallery?.[0]?.blurDataURL || p.blurDataURL}
-              className="prod-card__img prod-card__img--primary"
-            />
+            <>
+              {!imgLoaded && <div className="skeleton prod-card__skeleton" aria-hidden="true" />}
+              <Image
+                src={p.gallery?.[0]?.mediumUrl || p.image}
+                alt={p.name}
+                fill
+                priority={priority}
+                sizes="(max-width:560px) 50vw, (max-width:900px) 33vw, 280px"
+                placeholder={p.gallery?.[0]?.blurDataURL || p.blurDataURL ? "blur" : "empty"}
+                blurDataURL={p.gallery?.[0]?.blurDataURL || p.blurDataURL}
+                onLoad={() => setImgLoaded(true)}
+                className={`prod-card__img prod-card__img--primary${imgLoaded ? " is-loaded" : ""}`}
+              />
+            </>
           ) : (
             <div className={`motif ${p.tone}`}>
               <svg viewBox={vb(p.motif)}>

@@ -2065,6 +2065,15 @@ h1,h2,h3,h4{font-family:var(--serif);font-weight:500;line-height:1.05;letter-spa
 @keyframes shimmer{to{background-position:-200% 0}}
 @media(prefers-reduced-motion:reduce){.skeleton{animation:none}}
 
+.prod-card__skeleton{position:absolute;inset:0;z-index:3;border-radius:0}
+.prod-card__img{opacity:0}
+.prod-card__img.is-loaded{opacity:1}
+.prod-card__img--primary.is-loaded{transition:opacity .5s var(--ease),transform .6s var(--ease)}
+
+.skeleton--dark{background:linear-gradient(100deg,rgba(255,255,255,.06) 30%,rgba(255,255,255,.16) 50%,rgba(255,255,255,.06) 70%);
+  background-size:200% 100%;animation:shimmer 1.4s ease-in-out infinite;border-radius:3px}
+@media(prefers-reduced-motion:reduce){.skeleton--dark{animation:none}}
+
 /* ============================================================
    Hero — curved editorial divider with real photography
    (overrides the placeholder gradient hero)
@@ -4006,3 +4015,63 @@ h1,h2,h3,h4{font-family:var(--serif);font-weight:500;line-height:1.05;letter-spa
 }
 
 
+
+/* ── Order detail: line items, key/value lists, totals ───────────────── */
+.adm-line-item{display:flex;align-items:center;gap:.7rem}
+.adm-line-item__img{width:44px;height:56px;object-fit:cover;border-radius:4px;border:1px solid var(--line-2);flex-shrink:0}
+.adm-line-item__img--empty{background:var(--cream-2)}
+
+.adm-kv{margin:0;font-size:.9rem}
+.adm-kv > div{display:flex;align-items:center;gap:.6rem;justify-content:space-between;padding:.42rem 0;border-bottom:1px solid var(--line-2)}
+.adm-kv > div:last-child{border-bottom:0}
+.adm-kv dt{color:var(--muted);flex-shrink:0}
+.adm-kv dd{margin:0;text-align:right;display:flex;align-items:center;gap:.4rem;justify-content:flex-end;min-width:0}
+.adm-kv code{font-size:.8rem;background:var(--cream-2);padding:.15rem .4rem;border-radius:4px;overflow-wrap:anywhere}
+
+.adm-totals{margin:1rem 0 0;font-size:.92rem;border-top:1px solid var(--line-2);padding-top:.7rem}
+.adm-totals > div{display:flex;justify-content:space-between;gap:1rem;padding:.28rem 0}
+.adm-totals dt{color:var(--muted)}
+.adm-totals dd{margin:0}
+.adm-totals__grand{border-top:1px solid var(--line-2);margin-top:.4rem;padding-top:.6rem!important;font-family:var(--serif);font-size:1.22rem}
+.adm-totals__grand dt{color:var(--ink)}
+
+.adm-warn-card{border-color:#e0a03a;background:#fdf4e3;margin-bottom:1.2rem;font-size:.9rem;line-height:1.55}
+
+/* ── Invoice: hidden on screen, the only thing that prints ───────────── */
+.invoice{display:none}
+
+@media print{
+  /* Strip the admin chrome — the invoice is the whole page. */
+  .adm-side,.adm-topbar,.no-print{display:none!important}
+  .adm-shell{display:block!important}
+  .adm-content{margin:0!important;padding:0!important;max-width:none!important}
+
+  html,body{background:#fff!important;color:#000!important}
+
+  .invoice{display:block;font-family:var(--body);color:#000;padding:0;font-size:11pt;line-height:1.5}
+  .invoice__head{display:flex;justify-content:space-between;align-items:flex-start;gap:2rem;border-bottom:2px solid #000;padding-bottom:1rem;margin-bottom:1.4rem}
+  .invoice__logo{width:48px;height:48px;object-fit:contain}
+  .invoice__store{font-family:var(--serif);font-size:1.4rem;margin:.35rem 0 .3rem}
+  .invoice__from{font-size:9.5pt;line-height:1.45;color:#333;margin:0}
+  .invoice__meta{text-align:right}
+  .invoice__meta h1{font-family:var(--serif);font-size:1.8rem;letter-spacing:.06em;text-transform:uppercase;margin:0 0 .35rem}
+  .invoice__meta p{margin:0;font-size:9.5pt;line-height:1.5}
+
+  .invoice__bill{margin-bottom:1.4rem}
+  .invoice__bill h3{font-size:8.5pt;letter-spacing:.14em;text-transform:uppercase;color:#555;margin:0 0 .35rem}
+  .invoice__bill p{margin:0;line-height:1.55}
+
+  .invoice__table{width:100%;border-collapse:collapse;margin-bottom:1.4rem}
+  .invoice__table th{text-align:left;font-size:8.5pt;letter-spacing:.12em;text-transform:uppercase;color:#555;border-bottom:1px solid #000;padding:.4rem .5rem .4rem 0}
+  .invoice__table td{padding:.45rem .5rem .45rem 0;border-bottom:1px solid #ddd;vertical-align:top}
+  .invoice__table th:not(:first-child),.invoice__table td:not(:first-child){text-align:right;width:1%;white-space:nowrap;padding-left:1.2rem}
+  .invoice__table tfoot td{border-bottom:0;padding:.22rem .5rem .22rem 0;color:#333}
+  .invoice__table tfoot td:first-child{text-align:right;color:#555}
+  .invoice__grand td{border-top:1.5px solid #000!important;padding-top:.5rem!important;font-family:var(--serif);font-size:1.15rem;color:#000!important;font-weight:700}
+
+  .invoice__foot{border-top:1px solid #ddd;padding-top:.9rem;font-size:9.5pt}
+  .invoice__foot p{margin:0 0 .3rem}
+  .invoice__thanks{color:#555;font-style:italic}
+
+  @page{margin:16mm}
+}
