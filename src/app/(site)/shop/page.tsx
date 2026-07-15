@@ -10,11 +10,21 @@ export const metadata: Metadata = {
 };
 
 interface Props {
-  searchParams: Promise<{ cat?: string; sub?: string; sort?: string; q?: string }>;
+  searchParams: Promise<{
+    cat?: string;
+    sub?: string;
+    sort?: string;
+    q?: string;
+    price?: string;
+    fabric?: string;
+    cols?: string;
+    size?: string;
+    page?: string;
+  }>;
 }
 
 export default async function Shop({ searchParams }: Props) {
-  const { cat, sub, sort, q } = await searchParams;
+  const { cat, sub, q } = await searchParams;
   const activeCat = cat?.replace(/\+/g, " ");
   const activeSub = sub?.replace(/\+/g, " ");
   const query = (q ?? "").trim();
@@ -59,14 +69,13 @@ export default async function Shop({ searchParams }: Props) {
         </p>
       </header>
 
-      {/* Interactive Client View */}
+      {/* Interactive Client View — reads sort/search/price/fabric/cols/size/page
+          straight from the URL via useSearchParams so browser Back restores them. */}
       <ShopClientView
         allProducts={allProducts}
         categories={categories}
         initialCat={activeCat}
         initialSub={activeSub}
-        initialSort={sort}
-        initialQuery={query}
       />
     </main>
   );

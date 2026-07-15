@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Product } from "@/lib/types";
@@ -15,45 +15,61 @@ interface ShopClientViewProps {
   categories: Category[];
   initialCat?: string;
   initialSub?: string;
-  initialSort?: string;
-  initialQuery?: string;
 }
+
+// URL param defaults. A param equal to its default is dropped from the URL to keep
+// links tidy; anything absent falls back to these values when read.
+const DEFAULTS: Record<string, string> = {
+  q: "",
+  sort: "featured",
+  price: "all",
+  fabric: "all",
+  cols: "3",
+  size: "12",
+  page: "1",
+};
 
 export default function ShopClientView({
   allProducts,
   categories,
   initialCat,
   initialSub,
-  initialSort = "featured",
-  initialQuery = "",
 }: ShopClientViewProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const gridContainerRef = useRef<HTMLDivElement>(null);
 
-  const [searchQuery, setSearchQuery] = useState(initialQuery);
-  const [sortBy, setSortBy] = useState(initialSort);
-  const [priceRange, setPriceRange] = useState("all");
-  const [selectedFabric, setSelectedFabric] = useState("all");
-  const [gridCols, setGridCols] = useState(3);
+  // ---- All listing state is derived from the URL, so the browser Back button
+  //      restores the exact page/filters/sort — and, because the same products
+  //      re-render, native scroll restoration lands where the shopper left off.
+  const searchQuery = searchParams.get("q") ?? "";
+  const sortBy = searchParams.get("sort") ?? "featured";
+  const priceRange = searchParams.get("price") ?? "all";
+  const selectedFabric = searchParams.get("fabric") ?? "all";
+  const gridCols = Number(searchParams.get("cols")) || 3;
+  const pageSize = Number(searchParams.get("size")) || 12;
+  const currentPageRaw = Math.max(1, Number(searchParams.get("page")) || 1);
 
-  // Pagination State
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(12);
-
-  // Sync state if URL searchParams change
-  useEffect(() => {
-    const q = searchParams.get("q") ?? "";
-    const sort = searchParams.get("sort") ?? "featured";
-    setSearchQuery(q);
-    setSortBy(sort);
-    setCurrentPage(1);
-  }, [searchParams]);
-
-  // Reset page to 1 when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, priceRange, selectedFabric, sortBy, initialCat, initialSub]);
+  /**
+   * Write listing state into the URL. Uses router.replace so the shop stays a single
+   * history entry that always reflects the latest view (Back from a product returns
+   * straight to the restored listing). scroll:false keeps the viewport put on filter
+   * changes. Filter/sort/size changes reset the page to 1; page/cols changes don't.
+   * Params equal to their default are removed to keep the URL clean.
+   */
+  const setParams = (
+    patch: Record<string, string | number>,
+    { resetPage = true }: { resetPage?: boolean } = {}
+  ) => {
+    const params = new URLSearchParams(searchParams.toString());
+    for (const [k, v] of Object.entries(patch)) params.set(k, String(v));
+    if (resetPage && !("page" in patch)) params.set("page", "1");
+    for (const [k, dflt] of Object.entries(DEFAULTS)) {
+      if ((params.get(k) ?? dflt) === dflt) params.delete(k);
+    }
+    const qs = params.toString();
+    router.replace(qs ? `/shop?${qs}` : "/shop", { scroll: false });
+  };
 
   const activeCategory = initialCat
     ? categories.find((c) => c.name.toLowerCase() === initialCat.toLowerCase())
@@ -131,39 +147,25 @@ export default function ShopClientView({
     return result;
   }, [allProducts, initialCat, initialSub, searchQuery, priceRange, selectedFabric, sortBy]);
 
-  // Paginated Slice
+  // Paginated Slice (clamp page to available range so a stale/shared ?page= never
+  // renders an empty grid)
   const totalPages = Math.ceil(filteredProducts.length / pageSize) || 1;
+  const currentPage = Math.min(currentPageRaw, totalPages);
   const paginatedProducts = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
     return filteredProducts.slice(start, start + pageSize);
   }, [filteredProducts, currentPage, pageSize]);
 
   const handleResetFilters = () => {
-    setSearchQuery("");
-    setPriceRange("all");
-    setSelectedFabric("all");
-    setSortBy("featured");
-    setCurrentPage(1);
-    if (initialCat || initialSub) {
-      router.push("/shop");
-    }
-  };
-
-  const handleSearchChange = (q: string) => {
-    setSearchQuery(q);
+    router.replace("/shop", { scroll: false });
   };
 
   const handlePageChange = (newPage: number) => {
-    setCurrentPage(newPage);
+    setParams({ page: newPage }, { resetPage: false });
     if (gridContainerRef.current) {
       const topOffset = gridContainerRef.current.getBoundingClientRect().top + window.scrollY - 110;
-      window.scrollTo({ top: Math.max(0, topOffset), behavior: "smooth" });
+      window.scrollTo({ top: Math.max(0, topOffset) });
     }
-  };
-
-  const handlePageSizeChange = (newSize: number) => {
-    setPageSize(newSize);
-    setCurrentPage(1);
   };
 
   return (
@@ -201,16 +203,16 @@ export default function ShopClientView({
       {/* Shop Control & Filter Toolbar */}
       <ShopToolbar
         searchQuery={searchQuery}
-        onSearchChange={handleSearchChange}
+        onSearchChange={(q) => setParams({ q })}
         sortBy={sortBy}
-        onSortChange={setSortBy}
+        onSortChange={(sort) => setParams({ sort })}
         priceRange={priceRange}
-        onPriceChange={setPriceRange}
+        onPriceChange={(price) => setParams({ price })}
         selectedFabric={selectedFabric}
-        onFabricChange={setSelectedFabric}
+        onFabricChange={(fabric) => setParams({ fabric })}
         availableFabrics={availableFabrics}
         gridCols={gridCols}
-        onGridColsChange={setGridCols}
+        onGridColsChange={(cols) => setParams({ cols }, { resetPage: false })}
         totalResults={filteredProducts.length}
         activeCat={initialCat}
         activeSub={initialSub}
@@ -244,7 +246,7 @@ export default function ShopClientView({
             pageSize={pageSize}
             totalItems={filteredProducts.length}
             onPageChange={handlePageChange}
-            onPageSizeChange={handlePageSizeChange}
+            onPageSizeChange={(size) => setParams({ size })}
           />
         </>
       )}
